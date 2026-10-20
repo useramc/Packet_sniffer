@@ -1,15 +1,34 @@
 import json
+from datetime import datetime
 from pathlib import Path
 
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify, render_template, request
 
 app = Flask(__name__)
 MOCK_FILE = Path(__file__).parent / "mock" / "mock_data.json"
+
+INTERFACES = ["Wi-Fi", "Ethernet"]
+session = {"status": "idle", "sessionId": None, "startedAt": None, "count": 0}
 
 
 def load_mock_data():
     with open(MOCK_FILE, "r") as f:
         return json.load(f)
+
+
+def error(code, message, http_status):
+    return jsonify({"errorCode": code, "message": message}), http_status
+
+
+def change_status(allowed_from, new_status):
+    if session["status"] not in allowed_from:
+        return error(
+            "INVALID_STATE",
+            f"Cannot go to '{new_status}' from '{session['status']}'",
+            409,
+        )
+    session["status"] = new_status
+    return jsonify({"status": new_status})
 
 
 @app.route("/")
@@ -20,6 +39,53 @@ def index():
 @app.route("/api/mock")
 def mock():
     return jsonify(load_mock_data())
+
+
+@app.route("/api/interfaces")
+def get_interfaces():
+    return jsonify({"interfaces": INTERFACES})
+
+
+@app.route("/api/capture/status")
+def get_status():
+    return jsonify({
+        "status": session["status"],
+        "sessionId": session["sessionId"],
+        "startedAt": session["startedAt"],
+    })
+
+
+@app.route("/api/capture/start", methods=["POST"])
+def start_capture():
+    data = request.get_json(silent=True) or {}
+    if data.get("interface") not in INTERFACES:
+        return error("INVALID_INTERFACE", "Unknown network interface", 400)
+    if session["status"] in ("running", "paused"):
+        return error("INVALID_STATE", "Capture already running", 409)
+    session["count"] += 1
+    session["status"] = "running"
+    session["sessionId"] = f"mock-{session['count']:03d}"
+    session["startedAt"] = datetime.now().isoformat(timespec="seconds")
+    return jsonify({
+        "sessionId": session["sessionId"],
+        "status": session["status"],
+        "startedAt": session["startedAt"],
+    })
+
+
+@app.route("/api/capture/stop", methods=["POST"])
+def stop_capture():
+    return change_status(("running", "paused"), "stopped")
+
+
+@app.route("/api/capture/pause", methods=["POST"])
+def pause_capture():
+    return change_status(("running",), "paused")
+
+
+@app.route("/api/capture/resume", methods=["POST"])
+def resume_capture():
+    return change_status(("paused",), "running")
 
 
 if __name__ == "__main__":

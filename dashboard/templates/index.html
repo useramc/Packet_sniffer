@@ -14,7 +14,12 @@
 
   <div class="panel" id="session-controls">
     <h2>Session Controls</h2>
-    <div class="box"></div>
+    <label>Interface: <select id="interface"></select></label>
+    <button id="start-btn">Start</button>
+    <button id="pause-btn">Pause</button>
+    <button id="stop-btn">Stop</button>
+    <p>Status: <b id="status">idle</b></p>
+    <p id="message"></p>
   </div>
 
   <div class="panel" id="live-stats">
@@ -31,5 +36,62 @@
     <h2>Alerts</h2>
     <div class="box"></div>
   </div>
+
+  <script>
+    const interfaceSelect = document.getElementById("interface");
+    const startBtn = document.getElementById("start-btn");
+    const pauseBtn = document.getElementById("pause-btn");
+    const stopBtn = document.getElementById("stop-btn");
+    const statusEl = document.getElementById("status");
+    const messageEl = document.getElementById("message");
+
+    async function loadInterfaces() {
+      const res = await fetch("/api/interfaces");
+      const data = await res.json();
+      for (const name of data.interfaces) {
+        const option = document.createElement("option");
+        option.value = name;
+        option.textContent = name;
+        interfaceSelect.appendChild(option);
+      }
+    }
+
+    function updateControls(status) {
+      const active = status === "running" || status === "paused";
+      statusEl.textContent = status;
+      interfaceSelect.disabled = active;
+      startBtn.disabled = active;
+      pauseBtn.disabled = !active;
+      stopBtn.disabled = !active;
+      pauseBtn.textContent = status === "paused" ? "Resume" : "Pause";
+    }
+
+    async function refreshStatus() {
+      const res = await fetch("/api/capture/status");
+      const data = await res.json();
+      updateControls(data.status);
+    }
+
+    async function sendAction(url, body) {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body || {})
+      });
+      const data = await res.json();
+      messageEl.textContent = res.ok ? "" : data.message;
+      refreshStatus();
+    }
+
+    startBtn.onclick = () => sendAction("/api/capture/start", { interface: interfaceSelect.value });
+    stopBtn.onclick = () => sendAction("/api/capture/stop");
+    pauseBtn.onclick = () => sendAction(
+      statusEl.textContent === "paused" ? "/api/capture/resume" : "/api/capture/pause"
+    );
+
+    loadInterfaces();
+    refreshStatus();
+    setInterval(refreshStatus, 1000);
+  </script>
 </body>
 </html>
