@@ -24,7 +24,20 @@
 
   <div class="panel" id="live-stats">
     <h2>Live Traffic Statistics</h2>
-    <div class="box"></div>
+    <p id="no-session">No active session</p>
+    <div id="stats-content" hidden>
+      <p>Packets/sec: <b id="packets-per-sec">0</b></p>
+      <h3>Top Talkers</h3>
+      <table border="1" cellpadding="4">
+        <thead><tr><th>IP</th><th>Packets</th></tr></thead>
+        <tbody id="talkers-body"></tbody>
+      </table>
+      <h3>Protocol Breakdown</h3>
+      <table border="1" cellpadding="4">
+        <thead><tr><th>Protocol</th><th>Packets</th></tr></thead>
+        <tbody id="protocols-body"></tbody>
+      </table>
+    </div>
   </div>
 
   <div class="panel" id="hosts">
@@ -44,6 +57,11 @@
     const stopBtn = document.getElementById("stop-btn");
     const statusEl = document.getElementById("status");
     const messageEl = document.getElementById("message");
+    const noSessionEl = document.getElementById("no-session");
+    const statsContentEl = document.getElementById("stats-content");
+    const packetsEl = document.getElementById("packets-per-sec");
+    const talkersBody = document.getElementById("talkers-body");
+    const protocolsBody = document.getElementById("protocols-body");
 
     async function loadInterfaces() {
       const res = await fetch("/api/interfaces");
@@ -72,6 +90,37 @@
       updateControls(data.status);
     }
 
+    function showStats(data) {
+      packetsEl.textContent = data.packets_per_sec;
+      talkersBody.innerHTML = "";
+      for (const talker of data.top_talkers) {
+        const row = talkersBody.insertRow();
+        row.insertCell().textContent = talker.ip;
+        row.insertCell().textContent = talker.packets;
+      }
+      protocolsBody.innerHTML = "";
+      for (const [name, count] of Object.entries(data.protocols)) {
+        const row = protocolsBody.insertRow();
+        row.insertCell().textContent = name;
+        row.insertCell().textContent = count;
+      }
+      noSessionEl.hidden = true;
+      statsContentEl.hidden = false;
+    }
+
+    async function refreshStats() {
+      const status = statusEl.textContent;
+      if (status === "paused") return;
+      if (status !== "running") {
+        noSessionEl.hidden = false;
+        statsContentEl.hidden = true;
+        return;
+      }
+      const res = await fetch("/api/stats");
+      if (!res.ok) return;
+      showStats(await res.json());
+    }
+
     async function sendAction(url, body) {
       const res = await fetch(url, {
         method: "POST",
@@ -80,7 +129,8 @@
       });
       const data = await res.json();
       messageEl.textContent = res.ok ? "" : data.message;
-      refreshStatus();
+      await refreshStatus();
+      refreshStats();
     }
 
     startBtn.onclick = () => sendAction("/api/capture/start", { interface: interfaceSelect.value });
@@ -90,8 +140,9 @@
     );
 
     loadInterfaces();
-    refreshStatus();
+    refreshStatus().then(refreshStats);
     setInterval(refreshStatus, 1000);
+    setInterval(refreshStats, 2000);
   </script>
 </body>
 </html>
