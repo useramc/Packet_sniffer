@@ -1,5 +1,6 @@
 import os
 
+
 class ZeekLogParser:
     def __init__(self, logs_dir):
         self.logs_dir = logs_dir

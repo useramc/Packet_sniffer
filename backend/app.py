@@ -3,6 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from flask import Flask, jsonify, request
+
 from parsers.zeek_parser import ZeekLogParser
 from zeek_runner import analyze_pcap
 

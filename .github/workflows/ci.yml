@@ -1,8 +1,7 @@
+
 name: CI
 
-# PPS-14. Runs on every PR into develop/main (matches SAD A.3 branching
-# strategy: main <- develop <- feature/PPS-F-0xx-*), plus pushes to those
-# branches directly.
+# PPS-14. Runs on every PR into develop/main, plus pushes to those branches.
 on:
   pull_request:
     branches: [develop, main]
@@ -16,6 +15,7 @@ jobs:
     defaults:
       run:
         working-directory: backend
+
     steps:
       - uses: actions/checkout@v4
 
@@ -24,7 +24,7 @@ jobs:
         with:
           python-version: "3.12"
           cache: "pip"
-          cache-dependency-path: requirements.txt
+          cache-dependency-path: backend/requirements.txt
 
       - name: Install dependencies
         run: |
@@ -37,9 +37,7 @@ jobs:
 
       - name: Run tests
         env:
-          # CI-only throwaway secret. Real deployments set PPS_JWT_SECRET
-          # via repo/environment secrets, never a literal in this file
-          # (PPS-SR-004: no hardcoded credentials/secrets).
+          # CI-only fallback secret; real deployments use repository secrets.
           PPS_JWT_SECRET: ${{ secrets.PPS_JWT_SECRET != '' && secrets.PPS_JWT_SECRET || 'ci-only-throwaway-secret' }}
         run: pytest -v
 
