@@ -1,4 +1,6 @@
+
 import sys
+from io import BytesIO
 from pathlib import Path
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -38,7 +40,9 @@ def test_analyze_rejects_unsupported_file():
     client = app.test_client()
     response = client.post(
         "/api/zeek/analyze",
-        data={"pcap": (None, "capture.txt")},
+        data={
+            "pcap": (BytesIO(b"test-data"), "capture.txt"),
+        },
         content_type="multipart/form-data",
     )
 
@@ -49,9 +53,55 @@ def test_analyze_rejects_unsupported_file():
 def test_parser_returns_list_for_sample_logs():
     import os
 
-    logs_dir = os.path.join(os.path.dirname(__file__), "..", "sample_logs")
+    logs_dir = os.path.join(
+        os.path.dirname(__file__), "..", "sample_logs"
+    )
     parser = ZeekLogParser(logs_dir)
 
     records = parser.parse_conn_log()
 
     assert isinstance(records, list)
+
+
+def test_analyze_returns_generated_log_files(monkeypatch):
+    import app as app_module
+
+    client = app_module.app.test_client()
+
+    def fake_analyze_pcap(pcap_path):
+        return {
+            "status": "success",
+            "elapsed_seconds": 0.1,
+            "output_dir": "/tmp/zeek-test",
+            "log_files": [
+                "conn.log",
+                "dns.log",
+                "packet_filter.log",
+            ],
+            "stderr": "",
+        }
+
+    monkeypatch.setattr(
+        app_module,
+        "analyze_pcap",
+        fake_analyze_pcap,
+    )
+
+    response = client.post(
+        "/api/zeek/analyze",
+        data={
+            "pcap": (
+                BytesIO(b"fake-pcap-data"),
+                "capture.pcap",
+            ),
+        },
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 200
+
+    result = response.get_json()
+    assert result["status"] == "success"
+    assert "conn.log" in result["log_files"]
+    assert "dns.log" in result["log_files"]
+    assert "packet_filter.log" in result["log_files"]
