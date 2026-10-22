@@ -3,6 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from flask import Flask, jsonify, request
+
 from parsers.zeek_parser import ZeekLogParser
 from zeek_runner import analyze_pcap
 
@@ -17,7 +18,7 @@ def health():
     return jsonify({
         "status": "success",
         "message": "Packet Sniffer API is running",
-        "logs_dir": ZEEK_LOGS_PATH
+        "logs_dir": ZEEK_LOGS_PATH,
     }), 200
 
 
@@ -29,7 +30,7 @@ def get_connection_logs():
     return jsonify({
         "status": "success",
         "count": len(logs),
-        "data": logs
+        "data": logs,
     }), 200
 
 
@@ -40,7 +41,7 @@ def analyze_capture():
     if uploaded_file is None or not uploaded_file.filename:
         return jsonify({
             "status": "error",
-            "message": "Upload a PCAP file using the 'pcap' field."
+            "message": "Upload a PCAP file using the 'pcap' field.",
         }), 400
 
     filename = Path(uploaded_file.filename).name
@@ -48,7 +49,7 @@ def analyze_capture():
     if Path(filename).suffix.lower() not in {".pcap", ".pcapng"}:
         return jsonify({
             "status": "error",
-            "message": "Only .pcap and .pcapng files are supported."
+            "message": "Only .pcap and .pcapng files are supported.",
         }), 400
 
     try:
@@ -63,19 +64,19 @@ def analyze_capture():
     except (FileNotFoundError, ValueError) as exc:
         return jsonify({
             "status": "error",
-            "message": str(exc)
+            "message": str(exc),
         }), 400
 
     except TimeoutError as exc:
         return jsonify({
             "status": "error",
-            "message": str(exc)
+            "message": str(exc),
         }), 504
 
     except RuntimeError as exc:
         return jsonify({
             "status": "error",
-            "message": str(exc)
+            "message": str(exc),
         }), 500
 
 

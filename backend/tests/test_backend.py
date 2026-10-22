@@ -6,10 +6,11 @@ from pathlib import Path
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND_DIR))
 
-import app as app_module
-import zeek_runner
-from app import app
-from parsers.zeek_parser import ZeekLogParser
+# These imports intentionally follow sys.path setup.
+import app as app_module  # noqa: E402
+import zeek_runner  # noqa: E402
+from app import app  # noqa: E402
+from parsers.zeek_parser import ZeekLogParser  # noqa: E402
 
 
 def test_health_endpoint():
@@ -67,7 +68,11 @@ def test_analyze_returns_generated_log_files(monkeypatch):
             "status": "success",
             "elapsed_seconds": 0.1,
             "output_dir": "/tmp/zeek-test",
-            "log_files": ["conn.log", "dns.log", "packet_filter.log"],
+            "log_files": [
+                "conn.log",
+                "dns.log",
+                "packet_filter.log",
+            ],
             "stderr": "",
         }
 
@@ -80,6 +85,7 @@ def test_analyze_returns_generated_log_files(monkeypatch):
     )
 
     assert response.status_code == 200
+
     result = response.get_json()
     assert result["status"] == "success"
     assert "conn.log" in result["log_files"]
