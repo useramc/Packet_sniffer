@@ -1,4 +1,5 @@
 import os
+
 from flask import Flask, jsonify
 from parsers.zeek_parser import ZeekLogParser
 
