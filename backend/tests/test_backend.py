@@ -1,5 +1,4 @@
 
-import os
 import sys
 from io import BytesIO
 from pathlib import Path
@@ -41,7 +40,9 @@ def test_analyze_rejects_unsupported_file():
     client = app.test_client()
     response = client.post(
         "/api/zeek/analyze",
-        data={"pcap": (BytesIO(b"test-data"), "capture.txt")},
+        data={
+            "pcap": (BytesIO(b"test-data"), "capture.txt"),
+        },
         content_type="multipart/form-data",
     )
 
@@ -59,9 +60,9 @@ def test_parser_returns_list_for_sample_logs():
 
 
 def test_analyze_returns_generated_log_files(monkeypatch):
-    import zeek_runner
+    import app as app_module
 
-    client = app.test_client()
+    client = app_module.app.test_client()
 
     def fake_analyze_pcap(pcap_path):
         return {
@@ -77,7 +78,7 @@ def test_analyze_returns_generated_log_files(monkeypatch):
         }
 
     monkeypatch.setattr(
-        zeek_runner,
+        app_module,
         "analyze_pcap",
         fake_analyze_pcap,
     )
