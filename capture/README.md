@@ -1,0 +1,102 @@
+# Capture setup and interface discovery
+
+Sprint 1 implementation for PPS-38 and PPS-39. This package lists and validates
+host interfaces and provides a bounded setup diagnostic that writes PCAP files.
+The application session manager, interface switching, filters, saved settings,
+and HTTP integration belong to later stories PPS-40 through PPS-45.
+
+## Setup
+
+Run commands from the repository root with Python 3.12 (matching backend CI).
+
+Windows PowerShell:
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r capture/requirements-dev.txt
+.\.venv\Scripts\python.exe -m capture interfaces
+```
+
+Install Npcap from https://npcap.com/#download before live capture. Restart the
+terminal after installation. If Npcap is installed with administrator-only access,
+run the diagnostic from an elevated PowerShell. Discovery alone does not prove
+that the current user has permission to open an adapter.
+
+Linux (Debian/Ubuntu example):
+
+```sh
+sudo apt-get install python3-venv libpcap0.8
+python3 -m venv .venv
+.venv/bin/python -m pip install -r capture/requirements-dev.txt
+.venv/bin/python -m capture interfaces
+```
+
+Linux packet sockets normally require root or CAP_NET_RAW; use a controlled test
+machine and the explicit venv interpreter for the smoke diagnostic. Some capture
+modes also need CAP_NET_ADMIN. Do not grant capabilities to the shared system
+Python executable. This package does not install drivers or change permissions.
+
+## Select an interface
+
+```sh
+python -m capture interfaces
+python -m capture select --interface "<id from interfaces output>"
+```
+
+Use the exact `id` from JSON, not the display name. Windows typically uses an NPF
+identifier; Linux typically uses a name such as `eth0` or `wlan0`. Discovery keeps
+all provider adapters, including loopback/virtual adapters; it does not guess the
+adapter's medium from its name. An empty list is valid and cannot be selected.
+Selection rechecks discovery and fails if an adapter disappeared. It never starts
+capture or falls back to the OS default interface.
+
+Python integration contract:
+
+```python
+from capture.interfaces import CaptureError, list_interfaces, select_interface
+
+adapters = [adapter.to_dict() for adapter in list_interfaces()]
+selected = select_interface(adapters[0]["id"])  # caller must handle an empty list
+# selected.id is suitable for Scapy's iface parameter.
+```
+
+`CaptureInterface` has `id`, `name`, `description`, and `addresses`. CLI commands
+write JSON to stdout and actionable failures to stderr with exit status 1.
+Argparse usage errors use status 2. The CLI runs on the host; future HTTP routes
+must use the backend's existing authentication dependency.
+
+## Smoke capture
+
+Only run against authorized test traffic. Choose the adapter explicitly and
+generate a small amount of traffic using a test device while the command runs.
+
+```sh
+python -m capture smoke --interface "<id>" --seconds 5 --count 100 --output capture/test.pcap
+```
+
+On Linux use `sudo .venv/bin/python -m capture smoke ...` if required. The command
+stops at the first of its time or packet limits (maximum 60 seconds/10000 packets),
+streams packets to disk without storing a packet list, and refuses to overwrite
+an existing file. Open the result in Wireshark and check the expected test traffic.
+Zero packets produces a valid empty PCAP; this is not proof of successful traffic
+capture. OS/permission failures leave any partial file for diagnosis. Generated
+PCAPs are ignored within `/capture` and must not be committed.
+
+The PCAP can later be passed to `backend.zeek_runner.analyze_pcap` through the
+team's integration layer. Zeek installation and analysis remain in PPS-29; this
+module does not change the analysis/authentication/dashboard code.
+
+## Verification
+
+```sh
+python -m pytest capture/tests -v
+python -m ruff check capture
+```
+
+Tests use synthetic packets and fake discovery/sniff providers; they never open
+a live capture socket. They verify Windows identifier preservation, missing
+adapters, provider/permission failures, bounded capture, file integrity, empty
+PCAPs, and overwrite protection. The dedicated capture CI runs these tests on
+Windows and Linux. Record real adapter selection and authorized live-capture
+results on both OSes separately for TC-COMP-01 and capture acceptance evidence;
+mocked tests alone do not establish full Windows/Linux runtime compatibility.
