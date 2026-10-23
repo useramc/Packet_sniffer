@@ -1,4 +1,9 @@
+
 Flask
 Flask-Cors
 pytest
 ruff
+fastapi
+httpx
+PyJWT
+bcrypt
