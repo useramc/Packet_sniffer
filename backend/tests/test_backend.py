@@ -1,3 +1,4 @@
+
 import subprocess
 import sys
 from io import BytesIO
@@ -6,7 +7,6 @@ from pathlib import Path
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND_DIR))
 
-# These imports intentionally follow sys.path setup.
 import app as app_module  # noqa: E402
 import zeek_runner  # noqa: E402
 from app import app  # noqa: E402
