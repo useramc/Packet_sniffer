@@ -154,3 +154,6 @@ venv/
 .ruff_cache/
 .coverage
 htmlcov/
+
+# Local database files
+*.db

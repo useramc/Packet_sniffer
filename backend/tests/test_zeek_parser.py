@@ -5,12 +5,13 @@ from pathlib import Path
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND_DIR))
 
-from app import app
-from parsers.zeek_parser import ZeekLogParser
+import app as app_module  # noqa: E402
+from app import app  # noqa: E402
+from parsers.zeek_parser import ZeekLogParser  # noqa: E402
 
 
-def test_parse_conn_log_returns_normalized_records(tmp_path):
-    log_content = (
+def make_conn_log():
+    return (
         "#separator \\x09\n"
         "#fields\tts\tuid\tid.orig_h\tid.orig_p\t"
         "id.resp_h\tid.resp_p\tproto\tservice\tconn_state\n"
@@ -19,7 +20,13 @@ def test_parse_conn_log_returns_normalized_records(tmp_path):
         "1.0\tC123\t192.168.1.10\t12345\t8.8.8.8\t53\t"
         "udp\tdns\tSF\n"
     )
-    (tmp_path / "conn.log").write_text(log_content, encoding="utf-8")
+
+
+def test_parse_conn_log_returns_normalized_records(tmp_path):
+    (tmp_path / "conn.log").write_text(
+        make_conn_log(),
+        encoding="utf-8",
+    )
 
     parser = ZeekLogParser(str(tmp_path))
     records = parser.parse_conn_log()
@@ -32,20 +39,22 @@ def test_parse_conn_log_returns_normalized_records(tmp_path):
 
 
 def test_conn_logs_endpoint_returns_parsed_records(tmp_path, monkeypatch):
-    log_content = (
-        "#separator \\x09\n"
-        "#fields\tts\tuid\tid.orig_h\tid.orig_p\t"
-        "id.resp_h\tid.resp_p\tproto\tservice\tconn_state\n"
-        "1.0\tC123\t192.168.1.10\t12345\t8.8.8.8\t53\t"
-        "udp\tdns\tSF\n"
+    (tmp_path / "conn.log").write_text(
+        make_conn_log(),
+        encoding="utf-8",
     )
-    (tmp_path / "conn.log").write_text(log_content, encoding="utf-8")
-    monkeypatch.setattr("app.ZEEK_LOGS_PATH", str(tmp_path))
+
+    monkeypatch.setattr(
+        app_module,
+        "ZEEK_LOGS_PATH",
+        str(tmp_path),
+    )
 
     with app.test_client() as client:
         response = client.get("/api/logs/conn")
 
     assert response.status_code == 200
+
     data = response.get_json()
     assert data["status"] == "success"
     assert data["count"] == 1

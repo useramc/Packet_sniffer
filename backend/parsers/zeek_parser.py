@@ -17,7 +17,6 @@ class ZeekLogParser:
 
         log_path = os.path.join(self.logs_dir, f"{log_type}.log")
 
-        # Do not create mock logs when real logs are missing.
         if not os.path.isfile(log_path):
             return []
 
@@ -33,7 +32,6 @@ class ZeekLogParser:
                 if not line:
                     continue
 
-                # Read Zeek's special field-value markers.
                 if line.startswith("#empty_field"):
                     parts = line.split("\t", 1)
                     if len(parts) == 2:
@@ -46,12 +44,10 @@ class ZeekLogParser:
                         unset_field = parts[1]
                     continue
 
-                # Read column names from the log metadata.
                 if line.startswith("#fields"):
                     fields = line.split("\t")[1:]
                     continue
 
-                # Skip other metadata, including #types and #open.
                 if line.startswith("#"):
                     continue
 
@@ -60,18 +56,14 @@ class ZeekLogParser:
 
                 values = line.split("\t")
 
-                # Skip malformed rows instead of misaligning fields.
                 if len(values) != len(fields):
                     continue
 
-                record = dict(zip(fields, values))
+                record = dict(zip(fields, values, strict=False))
 
-                # Convert Zeek's empty and unset markers to None.
                 record = {
                     key: (
-                        None
-                        if value in (empty_field, unset_field)
-                        else value
+                        None if value in (empty_field, unset_field) else value
                     )
                     for key, value in record.items()
                 }
@@ -103,9 +95,7 @@ class ZeekLogParser:
         results = {}
 
         for log_type in self.LOG_TYPES:
-            log_path = os.path.join(
-                self.logs_dir, f"{log_type}.log"
-            )
+            log_path = os.path.join(self.logs_dir, f"{log_type}.log")
 
             if os.path.isfile(log_path):
                 results[log_type] = self.parse_log(log_type)
