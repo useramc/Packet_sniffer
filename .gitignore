@@ -141,3 +141,16 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+
+# Python cache and virtual environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Python test and lint cache
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
