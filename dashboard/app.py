@@ -54,6 +54,16 @@ def get_status():
         "startedAt": session["startedAt"],
     })
 
+@app.route("/api/stats")
+def get_stats():
+    if session["status"] != "running":
+        return error("INVALID_STATE", "No active capture session", 409)
+    data = load_mock_data()
+    return jsonify({
+        "packets_per_sec": data["packets_per_sec"],
+        "top_talkers": data["top_talkers"],
+        "protocols": data["protocols"],
+    })
 
 @app.route("/api/capture/start", methods=["POST"])
 def start_capture():

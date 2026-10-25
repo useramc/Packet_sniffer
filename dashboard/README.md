@@ -90,3 +90,33 @@ All errors return `{ "errorCode": ..., "message": ... }`.
 ### `sendAction(url, body)`
 - **Input arguments:** `url` (str), `body` (object, optional)
 - **Output:** sends a POST request, shows the error message if one is returned, then refreshes the status
+
+# PPS-F-011 – Live Traffic Statistics
+
+Stats come from the static `mock/mock_data.json`, so the values do not change.
+The panel is refreshed by polling every 2 seconds.
+
+## Functions (`app.py`)
+
+### `get_stats()` → `GET /api/stats`
+- **Input arguments:** none
+- **Output:** `{packets_per_sec, top_talkers, protocols}`
+  - `packets_per_sec`: number
+  - `top_talkers`: list of `{ip, packets}`
+  - `protocols`: map of protocol name to packet count
+- **Errors:** `INVALID_STATE` (409) if the session status is not `running`
+
+## Functions (`templates/index.html`, JavaScript)
+
+### `showStats(data)`
+- **Input arguments:** `data` (object returned by `/api/stats`)
+- **Output:** fills the packets/sec value, the top talkers table and the protocol breakdown table, and shows the stats section
+
+### `refreshStats()`
+- **Input arguments:** none
+- **Output:**
+  - `running`: fetches `/api/stats` and calls `showStats()`
+  - `paused`: does nothing, so the last values stay on screen
+  - `idle` or `stopped`: hides the tables and shows "No active session"
+
+  Runs every 2 seconds, and right after every button action.
