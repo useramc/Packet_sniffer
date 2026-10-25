@@ -1,0 +1,15 @@
+{
+  "packets_per_sec": 245,
+  "top_talkers": [
+    {"ip": "192.168.1.10", "packets": 1200},
+    {"ip": "192.168.1.25", "packets": 800}
+  ],
+  "protocols": {"TCP": 120, "UDP": 40, "ICMP": 5},
+  "hosts": [
+    {"ip": "192.168.1.10", "first_seen": "2026-10-20T10:00:00"},
+    {"ip": "192.168.1.25", "first_seen": "2026-10-20T10:01:30"}
+  ],
+  "alerts": [
+    {"severity": "high", "message": "Possible port scan", "time": "2026-10-20T10:02:00"}
+  ]
+}
