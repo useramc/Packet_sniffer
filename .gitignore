@@ -138,6 +138,10 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
 
+# Testing
+.venv/
+__pycache__/
+.pytest_cache/
 # Python virtual environments
 .venv/
 venv/
