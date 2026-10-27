@@ -24,6 +24,7 @@
     <button id="pause-btn">Pause</button>
     <button id="stop-btn">Stop</button>
     <p>Status: <b id="status">idle</b></p>
+    <p>Live updates: <b id="ws-status">disconnected</b></p>
     <p id="message"></p>
   </div>
 
@@ -88,7 +89,9 @@
     const hostSearchEl = document.getElementById("host-search");
     const hostsBody = document.getElementById("hosts-body");
     const packetsBody = document.getElementById("packets-body");
+    const wsStatusEl = document.getElementById("ws-status");
     let allHosts = [];
+    let socket = null;
 
     async function loadInterfaces() {
       const res = await fetch("/api/interfaces");
@@ -109,6 +112,17 @@
       pauseBtn.disabled = !active;
       stopBtn.disabled = !active;
       pauseBtn.textContent = status === "paused" ? "Resume" : "Pause";
+      showNoSession(status);
+    }
+
+    function showNoSession(status) {
+      if (status === "running" || status === "paused") return;
+      noSessionEl.hidden = false;
+      statsContentEl.hidden = true;
+      alertsNoSessionEl.hidden = false;
+      alertsListEl.hidden = true;
+      hostsNoSessionEl.hidden = false;
+      hostsContentEl.hidden = true;
     }
 
     async function refreshStatus() {
@@ -135,19 +149,6 @@
       statsContentEl.hidden = false;
     }
 
-    async function refreshStats() {
-      const status = statusEl.textContent;
-      if (status === "paused") return;
-      if (status !== "running") {
-        noSessionEl.hidden = false;
-        statsContentEl.hidden = true;
-        return;
-      }
-      const res = await fetch("/api/stats");
-      if (!res.ok) return;
-      showStats(await res.json());
-    }
-
     function showAlerts(data) {
       alertsListEl.innerHTML = "";
       for (const alert of data.alerts) {
@@ -165,19 +166,6 @@
       }
       alertsNoSessionEl.hidden = true;
       alertsListEl.hidden = false;
-    }
-
-    async function refreshAlerts() {
-      const status = statusEl.textContent;
-      if (status === "paused") return;
-      if (status !== "running") {
-        alertsNoSessionEl.hidden = false;
-        alertsListEl.hidden = true;
-        return;
-      }
-      const res = await fetch("/api/alerts");
-      if (!res.ok) return;
-      showAlerts(await res.json());
     }
 
     function renderHosts() {
@@ -204,26 +192,35 @@
           row.insertCell().textContent = value === null ? "N/A" : value;
         }
       }
-    }
-
-    async function refreshHosts() {
-      const status = statusEl.textContent;
-      if (status === "paused") return;
-      if (status !== "running") {
-        hostsNoSessionEl.hidden = false;
-        hostsContentEl.hidden = true;
-        return;
-      }
-      const [hostsRes, packetsRes] = await Promise.all([
-        fetch("/api/hosts"),
-        fetch("/api/packets")
-      ]);
-      if (!hostsRes.ok || !packetsRes.ok) return;
-      allHosts = (await hostsRes.json()).hosts;
-      renderHosts();
-      showPackets(await packetsRes.json());
       hostsNoSessionEl.hidden = true;
       hostsContentEl.hidden = false;
+    }
+
+    function showHosts(data) {
+      allHosts = data.hosts;
+      renderHosts();
+      hostsNoSessionEl.hidden = true;
+      hostsContentEl.hidden = false;
+    }
+
+    function handleLiveMessage(message) {
+      const status = statusEl.textContent;
+      if (status !== "running" && status !== "paused") return;
+      if (message.type === "stats") showStats(message.data);
+      else if (message.type === "hosts") showHosts(message.data);
+      else if (message.type === "packets") showPackets(message.data);
+      else if (message.type === "alerts") showAlerts(message.data);
+    }
+
+    function connectLive() {
+      const protocol = location.protocol === "https:" ? "wss://" : "ws://";
+      socket = new WebSocket(protocol + location.host + "/ws/live");
+      socket.onopen = () => { wsStatusEl.textContent = "connected"; };
+      socket.onmessage = (event) => handleLiveMessage(JSON.parse(event.data));
+      socket.onclose = () => {
+        wsStatusEl.textContent = "disconnected";
+        setTimeout(connectLive, 2000);
+      };
     }
 
     async function sendAction(url, body) {
@@ -235,9 +232,7 @@
       const data = await res.json();
       messageEl.textContent = res.ok ? "" : data.message;
       await refreshStatus();
-      refreshStats();
-      refreshAlerts();
-      refreshHosts();
+      if (socket && socket.readyState === WebSocket.OPEN) socket.send("refresh");
     }
 
     hostSearchEl.oninput = renderHosts;
@@ -248,15 +243,8 @@
     );
 
     loadInterfaces();
-    refreshStatus().then(() => {
-      refreshStats();
-      refreshAlerts();
-      refreshHosts();
-    });
+    refreshStatus().then(connectLive);
     setInterval(refreshStatus, 1000);
-    setInterval(refreshStats, 2000);
-    setInterval(refreshAlerts, 2000);
-    setInterval(refreshHosts, 2000);
   </script>
 </body>
 </html>

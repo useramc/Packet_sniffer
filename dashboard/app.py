@@ -1,20 +1,40 @@
 import json
+import time
 from datetime import datetime
 from pathlib import Path
 
 from flask import Flask, jsonify, render_template, request
+from flask_sock import Sock
 
 app = Flask(__name__)
+sock = Sock(app)
 MOCK_FILE = Path(__file__).parent / "mock" / "mock_data.json"
 
 INTERFACES = ["Wi-Fi", "Ethernet"]
 MAX_PACKETS = 20
+PUSH_INTERVAL = 2
 session = {"status": "idle", "sessionId": None, "startedAt": None, "count": 0}
 
 
 def load_mock_data():
     with open(MOCK_FILE, "r") as f:
         return json.load(f)
+
+
+def build_live_messages():
+    data = load_mock_data()
+    packets = sorted(data["packets"], key=lambda packet: packet["time"], reverse=True)
+    alerts = sorted(data["alerts"], key=lambda alert: alert["time"], reverse=True)
+    return [
+        {"type": "stats", "data": {
+            "packets_per_sec": data["packets_per_sec"],
+            "top_talkers": data["top_talkers"],
+            "protocols": data["protocols"],
+        }},
+        {"type": "hosts", "data": {"hosts": data["hosts"]}},
+        {"type": "packets", "data": {"packets": packets[:MAX_PACKETS]}},
+        {"type": "alerts", "data": {"alerts": alerts}},
+    ]
 
 
 def error(code, message, http_status):
@@ -55,6 +75,7 @@ def get_status():
         "startedAt": session["startedAt"],
     })
 
+
 @app.route("/api/stats")
 def get_stats():
     if session["status"] != "running":
@@ -65,6 +86,7 @@ def get_stats():
         "top_talkers": data["top_talkers"],
         "protocols": data["protocols"],
     })
+
 
 @app.route("/api/hosts")
 def get_hosts():
@@ -81,6 +103,7 @@ def get_packets():
     packets = sorted(packets, key=lambda packet: packet["time"], reverse=True)
     return jsonify({"packets": packets[:MAX_PACKETS]})
 
+
 @app.route("/api/alerts")
 def get_alerts():
     if session["status"] != "running":
@@ -88,6 +111,7 @@ def get_alerts():
     alerts = load_mock_data()["alerts"]
     alerts = sorted(alerts, key=lambda alert: alert["time"], reverse=True)
     return jsonify({"alerts": alerts})
+
 
 @app.route("/api/capture/start", methods=["POST"])
 def start_capture():
@@ -120,6 +144,15 @@ def pause_capture():
 @app.route("/api/capture/resume", methods=["POST"])
 def resume_capture():
     return change_status(("paused",), "running")
+
+
+@sock.route("/ws/live")
+def live(ws):
+    while True:
+        if session["status"] == "running":
+            for message in build_live_messages():
+                ws.send(json.dumps(message))
+        ws.receive(timeout=PUSH_INTERVAL)
 
 
 if __name__ == "__main__":

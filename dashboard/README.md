@@ -182,3 +182,44 @@ The packet list is capped at the latest 20 rows (`MAX_PACKETS` in `app.py`).
   - `idle` or `stopped`: hides the tables and shows "No active session"
 
   Runs every 2 seconds, and right after every button action.
+
+# PPS-9 – Live Data over WebSocket
+
+The WebSocket replaces polling for the four data panels (stats, hosts, packets, alerts).
+The REST endpoints (`/api/stats`, `/api/hosts`, `/api/packets`, `/api/alerts`) still exist.
+Session status and the session buttons still use REST (status is polled every 1 second).
+Data comes from the static `mock/mock_data.json`. Uses the `flask-sock` library.
+
+## Functions (`app.py`)
+
+### `build_live_messages()`
+- **Input arguments:** none
+- **Output:** a list of 4 messages, each `{type, data}`:
+  - `stats`: `{packets_per_sec, top_talkers, protocols}`
+  - `hosts`: `{hosts: [...]}`
+  - `packets`: `{packets: [...]}`, newest first, at most 20
+  - `alerts`: `{alerts: [...]}`, newest first
+
+### `live(ws)` → WebSocket `/ws/live`
+- **Input arguments:** `ws` (the WebSocket connection, provided by flask-sock). Any text the client sends (e.g. "refresh") triggers an immediate push.
+- **Output:**
+  - `running`: sends the 4 messages from `build_live_messages()` as JSON text every 2 seconds (`PUSH_INTERVAL`)
+  - `paused`, `idle` or `stopped`: sends nothing. The connection stays open.
+
+## Functions (`templates/index.html`, JavaScript)
+
+### `connectLive()`
+- **Input arguments:** none
+- **Output:** opens the WebSocket to `/ws/live`. Sets the "Live updates" label to `connected` or `disconnected`. Reconnects every 2 seconds after the connection closes.
+
+### `handleLiveMessage(message)`
+- **Input arguments:** `message` (object `{type, data}`)
+- **Output:** calls `showStats()`, `showHosts()`, `showPackets()` or `showAlerts()` by `type`. Ignores the message unless the status is `running` or `paused`.
+
+### `showHosts(data)`
+- **Input arguments:** `data` (object `{hosts: [...]}`)
+- **Output:** stores the hosts, calls `renderHosts()` and shows the hosts panel content
+
+### `showNoSession(status)`
+- **Input arguments:** `status` (str)
+- **Output:** for `idle` or `stopped`, hides the stats, hosts and alerts content and shows "No active session". For `running` or `paused`, does nothing, so the last values stay on screen.
