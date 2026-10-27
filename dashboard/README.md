@@ -146,3 +146,39 @@ Alerts come from the static `mock/mock_data.json`. The panel is refreshed by pol
   - `idle` or `stopped`: hides the cards and shows "No active session"
 
   Runs every 2 seconds, and right after every button action.
+
+# PPS-F-012 – Active Hosts and Packet List
+
+Hosts and packets come from the static `mock/mock_data.json`. Both tables are refreshed by polling every 2 seconds.
+The packet list is capped at the latest 20 rows (`MAX_PACKETS` in `app.py`).
+
+## Functions (`app.py`)
+
+### `get_hosts()` → `GET /api/hosts`
+- **Input arguments:** none
+- **Output:** `{hosts: [...]}`. Each host is `{ip, mac, vendor, protocol, packets, first_seen}`; `mac` can be `null`.
+- **Errors:** `INVALID_STATE` (409) if the session status is not `running`
+
+### `get_packets()` → `GET /api/packets`
+- **Input arguments:** none
+- **Output:** `{packets: [...]}`, newest first, at most 20. Each packet is `{time, src_ip, dst_ip, protocol, src_port, dst_port, length}`; ports can be `null`.
+- **Errors:** `INVALID_STATE` (409) if the session status is not `running`
+
+## Functions (`templates/index.html`, JavaScript)
+
+### `renderHosts()`
+- **Input arguments:** none (uses the stored host list and the search box text)
+- **Output:** fills the Active Hosts table with the hosts whose IP, MAC, vendor or protocol contains the search text (case-insensitive). A missing MAC is shown as "N/A". Runs on every keystroke in the search box.
+
+### `showPackets(data)`
+- **Input arguments:** `data` (object returned by `/api/packets`)
+- **Output:** fills the Captured Packets table. A missing port is shown as "N/A".
+
+### `refreshHosts()`
+- **Input arguments:** none
+- **Output:**
+  - `running`: fetches `/api/hosts` and `/api/packets`, then calls `renderHosts()` and `showPackets()`
+  - `paused`: does nothing, so the last values stay on screen
+  - `idle` or `stopped`: hides the tables and shows "No active session"
+
+  Runs every 2 seconds, and right after every button action.

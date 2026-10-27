@@ -6,7 +6,6 @@
   <style>
     body { font-family: sans-serif; margin: 20px; }
     .panel { border: 1px solid #999; padding: 10px; margin-bottom: 15px; }
-    .box { border: 1px dashed #bbb; height: 80px; }
     .alert-card { border: 1px solid #999; padding: 8px; margin-bottom: 8px; }
     .severity { padding: 2px 8px; font-weight: bold; color: #000; }
     .severity-critical { background: red; color: #fff; }
@@ -48,7 +47,20 @@
 
   <div class="panel" id="hosts">
     <h2>Hosts</h2>
-    <div class="box"></div>
+    <p id="hosts-no-session">No active session</p>
+    <div id="hosts-content" hidden>
+      <label>Search hosts: <input type="text" id="host-search" placeholder="IP, MAC, vendor or protocol"></label>
+      <h3>Active Hosts</h3>
+      <table border="1" cellpadding="4">
+        <thead><tr><th>IP</th><th>MAC</th><th>Vendor</th><th>Protocol</th><th>Packets</th></tr></thead>
+        <tbody id="hosts-body"></tbody>
+      </table>
+      <h3>Captured Packets</h3>
+      <table border="1" cellpadding="4">
+        <thead><tr><th>Time</th><th>Source IP</th><th>Destination IP</th><th>Protocol</th><th>Src Port</th><th>Dst Port</th><th>Length</th></tr></thead>
+        <tbody id="packets-body"></tbody>
+      </table>
+    </div>
   </div>
 
   <div class="panel" id="alerts">
@@ -71,6 +83,12 @@
     const protocolsBody = document.getElementById("protocols-body");
     const alertsNoSessionEl = document.getElementById("alerts-no-session");
     const alertsListEl = document.getElementById("alerts-list");
+    const hostsNoSessionEl = document.getElementById("hosts-no-session");
+    const hostsContentEl = document.getElementById("hosts-content");
+    const hostSearchEl = document.getElementById("host-search");
+    const hostsBody = document.getElementById("hosts-body");
+    const packetsBody = document.getElementById("packets-body");
+    let allHosts = [];
 
     async function loadInterfaces() {
       const res = await fetch("/api/interfaces");
@@ -162,6 +180,52 @@
       showAlerts(await res.json());
     }
 
+    function renderHosts() {
+      const term = hostSearchEl.value.toLowerCase();
+      hostsBody.innerHTML = "";
+      for (const host of allHosts) {
+        const mac = host.mac || "N/A";
+        const text = [host.ip, mac, host.vendor, host.protocol].join(" ").toLowerCase();
+        if (!text.includes(term)) continue;
+        const row = hostsBody.insertRow();
+        for (const value of [host.ip, mac, host.vendor, host.protocol, host.packets]) {
+          row.insertCell().textContent = value;
+        }
+      }
+    }
+
+    function showPackets(data) {
+      packetsBody.innerHTML = "";
+      for (const packet of data.packets) {
+        const row = packetsBody.insertRow();
+        const values = [packet.time, packet.src_ip, packet.dst_ip, packet.protocol,
+                        packet.src_port, packet.dst_port, packet.length];
+        for (const value of values) {
+          row.insertCell().textContent = value === null ? "N/A" : value;
+        }
+      }
+    }
+
+    async function refreshHosts() {
+      const status = statusEl.textContent;
+      if (status === "paused") return;
+      if (status !== "running") {
+        hostsNoSessionEl.hidden = false;
+        hostsContentEl.hidden = true;
+        return;
+      }
+      const [hostsRes, packetsRes] = await Promise.all([
+        fetch("/api/hosts"),
+        fetch("/api/packets")
+      ]);
+      if (!hostsRes.ok || !packetsRes.ok) return;
+      allHosts = (await hostsRes.json()).hosts;
+      renderHosts();
+      showPackets(await packetsRes.json());
+      hostsNoSessionEl.hidden = true;
+      hostsContentEl.hidden = false;
+    }
+
     async function sendAction(url, body) {
       const res = await fetch(url, {
         method: "POST",
@@ -173,8 +237,10 @@
       await refreshStatus();
       refreshStats();
       refreshAlerts();
+      refreshHosts();
     }
 
+    hostSearchEl.oninput = renderHosts;
     startBtn.onclick = () => sendAction("/api/capture/start", { interface: interfaceSelect.value });
     stopBtn.onclick = () => sendAction("/api/capture/stop");
     pauseBtn.onclick = () => sendAction(
@@ -185,10 +251,12 @@
     refreshStatus().then(() => {
       refreshStats();
       refreshAlerts();
+      refreshHosts();
     });
     setInterval(refreshStatus, 1000);
     setInterval(refreshStats, 2000);
     setInterval(refreshAlerts, 2000);
+    setInterval(refreshHosts, 2000);
   </script>
 </body>
 </html>

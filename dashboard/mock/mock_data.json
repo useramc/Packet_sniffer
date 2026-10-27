@@ -6,8 +6,17 @@
   ],
   "protocols": {"TCP": 120, "UDP": 40, "ICMP": 5},
   "hosts": [
-    {"ip": "192.168.1.10", "first_seen": "2026-10-20T10:00:00"},
-    {"ip": "192.168.1.25", "first_seen": "2026-10-20T10:01:30"}
+    {"ip": "192.168.1.10", "mac": "AA:BB:CC:11:22:33", "vendor": "Apple, Inc.", "protocol": "TCP", "packets": 1200, "first_seen": "2026-10-20T10:00:00"},
+    {"ip": "192.168.1.25", "mac": "00:1A:2B:44:55:66", "vendor": "Dell Inc.", "protocol": "UDP", "packets": 800, "first_seen": "2026-10-20T10:01:30"},
+    {"ip": "192.168.1.40", "mac": null, "vendor": "Unknown", "protocol": "ICMP", "packets": 15, "first_seen": "2026-10-20T10:03:00"}
+  ],
+  "packets": [
+    {"time": "2026-10-20T10:04:02", "src_ip": "192.168.1.10", "dst_ip": "142.250.80.46", "protocol": "TCP", "src_port": 51724, "dst_port": 443, "length": 1514},
+    {"time": "2026-10-20T10:04:05", "src_ip": "192.168.1.25", "dst_ip": "8.8.8.8", "protocol": "UDP", "src_port": 49832, "dst_port": 53, "length": 74},
+    {"time": "2026-10-20T10:04:01", "src_ip": "192.168.1.40", "dst_ip": "192.168.1.1", "protocol": "ICMP", "src_port": null, "dst_port": null, "length": 98},
+    {"time": "2026-10-20T10:04:04", "src_ip": "192.168.1.10", "dst_ip": "192.168.1.1", "protocol": "TCP", "src_port": 51730, "dst_port": 80, "length": 60},
+    {"time": "2026-10-20T10:04:03", "src_ip": "192.168.1.25", "dst_ip": "192.168.1.10", "protocol": "TCP", "src_port": 22, "dst_port": 51411, "length": 132},
+    {"time": "2026-10-20T10:04:00", "src_ip": "192.168.1.10", "dst_ip": "1.1.1.1", "protocol": "UDP", "src_port": 50111, "dst_port": 53, "length": 82}
   ],
   "alerts": [
     {"severity": "high", "message": "Possible port scan", "time": "2026-10-20T10:02:00"},

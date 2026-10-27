@@ -8,6 +8,7 @@ app = Flask(__name__)
 MOCK_FILE = Path(__file__).parent / "mock" / "mock_data.json"
 
 INTERFACES = ["Wi-Fi", "Ethernet"]
+MAX_PACKETS = 20
 session = {"status": "idle", "sessionId": None, "startedAt": None, "count": 0}
 
 
@@ -64,6 +65,21 @@ def get_stats():
         "top_talkers": data["top_talkers"],
         "protocols": data["protocols"],
     })
+
+@app.route("/api/hosts")
+def get_hosts():
+    if session["status"] != "running":
+        return error("INVALID_STATE", "No active capture session", 409)
+    return jsonify({"hosts": load_mock_data()["hosts"]})
+
+
+@app.route("/api/packets")
+def get_packets():
+    if session["status"] != "running":
+        return error("INVALID_STATE", "No active capture session", 409)
+    packets = load_mock_data()["packets"]
+    packets = sorted(packets, key=lambda packet: packet["time"], reverse=True)
+    return jsonify({"packets": packets[:MAX_PACKETS]})
 
 @app.route("/api/alerts")
 def get_alerts():
