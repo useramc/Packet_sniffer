@@ -7,6 +7,12 @@
     body { font-family: sans-serif; margin: 20px; }
     .panel { border: 1px solid #999; padding: 10px; margin-bottom: 15px; }
     .box { border: 1px dashed #bbb; height: 80px; }
+    .alert-card { border: 1px solid #999; padding: 8px; margin-bottom: 8px; }
+    .severity { padding: 2px 8px; font-weight: bold; color: #000; }
+    .severity-critical { background: red; color: #fff; }
+    .severity-high { background: orange; }
+    .severity-medium { background: yellow; }
+    .severity-low { background: lightgreen; }
   </style>
 </head>
 <body>
@@ -47,7 +53,8 @@
 
   <div class="panel" id="alerts">
     <h2>Alerts</h2>
-    <div class="box"></div>
+    <p id="alerts-no-session">No active session</p>
+    <div id="alerts-list" hidden></div>
   </div>
 
   <script>
@@ -62,6 +69,8 @@
     const packetsEl = document.getElementById("packets-per-sec");
     const talkersBody = document.getElementById("talkers-body");
     const protocolsBody = document.getElementById("protocols-body");
+    const alertsNoSessionEl = document.getElementById("alerts-no-session");
+    const alertsListEl = document.getElementById("alerts-list");
 
     async function loadInterfaces() {
       const res = await fetch("/api/interfaces");
@@ -121,6 +130,38 @@
       showStats(await res.json());
     }
 
+    function showAlerts(data) {
+      alertsListEl.innerHTML = "";
+      for (const alert of data.alerts) {
+        const card = document.createElement("div");
+        card.className = "alert-card";
+        const severity = document.createElement("span");
+        severity.className = "severity severity-" + alert.severity;
+        severity.textContent = alert.severity;
+        const message = document.createElement("span");
+        message.textContent = " " + alert.message;
+        const time = document.createElement("div");
+        time.textContent = alert.time;
+        card.append(severity, message, time);
+        alertsListEl.appendChild(card);
+      }
+      alertsNoSessionEl.hidden = true;
+      alertsListEl.hidden = false;
+    }
+
+    async function refreshAlerts() {
+      const status = statusEl.textContent;
+      if (status === "paused") return;
+      if (status !== "running") {
+        alertsNoSessionEl.hidden = false;
+        alertsListEl.hidden = true;
+        return;
+      }
+      const res = await fetch("/api/alerts");
+      if (!res.ok) return;
+      showAlerts(await res.json());
+    }
+
     async function sendAction(url, body) {
       const res = await fetch(url, {
         method: "POST",
@@ -131,6 +172,7 @@
       messageEl.textContent = res.ok ? "" : data.message;
       await refreshStatus();
       refreshStats();
+      refreshAlerts();
     }
 
     startBtn.onclick = () => sendAction("/api/capture/start", { interface: interfaceSelect.value });
@@ -140,9 +182,13 @@
     );
 
     loadInterfaces();
-    refreshStatus().then(refreshStats);
+    refreshStatus().then(() => {
+      refreshStats();
+      refreshAlerts();
+    });
     setInterval(refreshStatus, 1000);
     setInterval(refreshStats, 2000);
+    setInterval(refreshAlerts, 2000);
   </script>
 </body>
 </html>

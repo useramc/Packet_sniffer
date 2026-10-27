@@ -65,6 +65,14 @@ def get_stats():
         "protocols": data["protocols"],
     })
 
+@app.route("/api/alerts")
+def get_alerts():
+    if session["status"] != "running":
+        return error("INVALID_STATE", "No active capture session", 409)
+    alerts = load_mock_data()["alerts"]
+    alerts = sorted(alerts, key=lambda alert: alert["time"], reverse=True)
+    return jsonify({"alerts": alerts})
+
 @app.route("/api/capture/start", methods=["POST"])
 def start_capture():
     data = request.get_json(silent=True) or {}

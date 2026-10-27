@@ -120,3 +120,29 @@ The panel is refreshed by polling every 2 seconds.
   - `idle` or `stopped`: hides the tables and shows "No active session"
 
   Runs every 2 seconds, and right after every button action.
+
+# PPS-F-014 – Alert Panel
+
+Alerts come from the static `mock/mock_data.json`. The panel is refreshed by polling every 2 seconds.
+
+## Functions (`app.py`)
+
+### `get_alerts()` → `GET /api/alerts`
+- **Input arguments:** none
+- **Output:** `{alerts: [...]}`, newest first (sorted by `time`). Each alert is `{severity, message, time}`.
+- **Errors:** `INVALID_STATE` (409) if the session status is not `running`
+
+## Functions (`templates/index.html`, JavaScript)
+
+### `showAlerts(data)`
+- **Input arguments:** `data` (object returned by `/api/alerts`)
+- **Output:** builds one card per alert showing a colored severity label, the message and the timestamp. Colors: critical = red, high = orange, medium = yellow, low = green.
+
+### `refreshAlerts()`
+- **Input arguments:** none
+- **Output:**
+  - `running`: fetches `/api/alerts` and calls `showAlerts()`
+  - `paused`: does nothing, so the last alerts stay on screen
+  - `idle` or `stopped`: hides the cards and shows "No active session"
+
+  Runs every 2 seconds, and right after every button action.

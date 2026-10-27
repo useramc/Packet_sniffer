@@ -10,6 +10,9 @@
     {"ip": "192.168.1.25", "first_seen": "2026-10-20T10:01:30"}
   ],
   "alerts": [
-    {"severity": "high", "message": "Possible port scan", "time": "2026-10-20T10:02:00"}
+    {"severity": "high", "message": "Possible port scan", "time": "2026-10-20T10:02:00"},
+    {"severity": "critical", "message": "Possible data exfiltration", "time": "2026-10-20T10:04:30"},
+    {"severity": "low", "message": "New device joined the network", "time": "2026-10-20T10:01:45"},
+    {"severity": "medium", "message": "Unusual DNS query volume", "time": "2026-10-20T10:03:15"}
   ]
 }
