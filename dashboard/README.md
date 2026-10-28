@@ -120,3 +120,55 @@ The panel is refreshed by polling every 2 seconds.
   - `idle` or `stopped`: hides the tables and shows "No active session"
 
   Runs every 2 seconds, and right after every button action.
+
+# Dashboard v2 – integrated with Auth, Capture, Zeek and Export
+
+The dashboard is now wired to the real modules instead of mock-only data. Nothing outside `dashboard/` was changed.
+
+## Run
+```
+pip install -r requirements.txt            # repo root
+pip install -r dashboard/requirements.txt
+cd dashboard
+python app.py                              # http://127.0.0.1:5000
+```
+First visit shows **Create administrator** (PPS-SR-004: no default password). Afterwards: **Sign in**.
+
+| Env var | Purpose |
+|---|---|
+| `PPS_MODE` | `auto` (default: live if capture works, else demo data), `live`, `mock` |
+| `PPS_JWT_SECRET` | JWT signing secret. If unset a random per-process one is generated (sessions end on restart) |
+| `PPS_TLS_CERT` / `PPS_TLS_KEY` | Serve HTTPS (PPS-SR-002) |
+| `PPS_HOST` / `PPS_PORT` | Bind address (default `127.0.0.1:5000`) |
+| `PPS_DATA_DIR` | Sessions (pcap), audit log, auth DB (default `dashboard/data/`) |
+| `ZEEK_BIN` | Path to Zeek (used by `backend/zeek_runner.py`) |
+| `PPS_OUI_FILE` | Optional Wireshark `manuf` file for full MAC-vendor lookup |
+
+Live capture needs Npcap (Windows) or libpcap (Linux) and Administrator/root rights. Capture only networks you own or may test.
+
+## What is integrated
+| Dashboard feature | Uses | Requirement |
+|---|---|---|
+| Login / first-run setup, 401 on unauthenticated access, lockout after 5 failures | `backend/auth` (bcrypt + JWT, SQLite) | PPS-F-021, SR-001, SR-004 |
+| Interface list, interface validation | `capture/interfaces.py` | PPS-F-001, F-004 |
+| Start / pause / resume / stop with BPF filter, PCAP written per session | Scapy `AsyncSniffer` + `PcapWriter` (`live_capture.py`) | PPS-F-002, F-005, F-013, F-020 |
+| Live stats, protocol breakdown, top talkers, packets/sec chart | `analytics.py` (Normalizer role) | PPS-F-009, F-011 |
+| Hosts: IP, MAC, vendor (OUI), protocol, packets, search | `analytics.py` (Device Profiler role) | PPS-F-010, F-012 |
+| Alerts: port-scan and plaintext-credential detection, plus Zeek `notice.log` after Stop | `analytics.py`, `backend/zeek_runner.py` | PPS-F-008, F-014 |
+| Redaction of captured secrets in alert details | `analytics.py` | PPS-SR-005 |
+| Session naming / tags / history / re-open | `app.py` `/api/sessions` | PPS-F-017 |
+| Export CSV / PCAP / Zeek logs (one-time 5-minute link) | `/api/export/session/{id}` | PPS-F-016 |
+| `/ws/live` push every second, polling fallback | `flask-sock` | PPS-NF-001 |
+| Audit log (`data/audit.log`, mode 600) | `audit.py` | PPS-SR-006 |
+| Zeek `conn.log` records | `backend/parsers/zeek_parser.py` via `/api/logs/conn` | PPS-F-007, F-009 |
+
+## New / changed endpoints (all require `Authorization: Bearer <token>` except those marked public)
+`GET /api/auth/state` (public), `POST /api/auth/setup` (public, first run only), `POST /api/auth/login` (public),
+`GET /api/config`, `GET /api/snapshot`, `GET /api/hosts`, `GET /api/alerts`, `GET /api/logs/conn`,
+`GET /api/sessions`, `GET|PATCH /api/sessions/{id}`, `POST /api/export/session/{id}` `{format}`,
+`GET /api/download/{token}` (public, one-time), `WS /ws/live?token=`.
+`GET /api/interfaces` now also returns `details: [{id, name, description, addresses}]`. Errors keep the `{errorCode, message}` envelope.
+
+## Tests
+`pytest` from the repo root: 40 tests. TC-DASH-02 and TC-DASH-04 are no longer skipped.
+Tests force `PPS_MODE=mock` and a throwaway auth DB.

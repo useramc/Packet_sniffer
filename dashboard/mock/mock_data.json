@@ -1,15 +1,85 @@
 {
   "packets_per_sec": 245,
   "top_talkers": [
-    {"ip": "192.168.1.10", "packets": 1200},
-    {"ip": "192.168.1.25", "packets": 800}
+    {
+      "ip": "192.168.1.10",
+      "packets": 1200
+    },
+    {
+      "ip": "192.168.1.25",
+      "packets": 800
+    }
   ],
-  "protocols": {"TCP": 120, "UDP": 40, "ICMP": 5},
+  "protocols": {
+    "TCP": 120,
+    "UDP": 40,
+    "ICMP": 5
+  },
   "hosts": [
-    {"ip": "192.168.1.10", "first_seen": "2026-10-20T10:00:00"},
-    {"ip": "192.168.1.25", "first_seen": "2026-10-20T10:01:30"}
+    {
+      "ip": "192.168.1.10",
+      "mac": "B8:27:EB:12:34:56",
+      "vendor": "Raspberry Pi",
+      "protocol": "HTTPS",
+      "packets": 1200,
+      "first_seen": "2026-10-20T10:00:00",
+      "last_seen": "2026-10-20T10:04:10"
+    },
+    {
+      "ip": "192.168.1.25",
+      "mac": "00:50:56:AB:CD:EF",
+      "vendor": "VMware",
+      "protocol": "DNS",
+      "packets": 800,
+      "first_seen": "2026-10-20T10:01:30",
+      "last_seen": "2026-10-20T10:04:08"
+    },
+    {
+      "ip": "192.168.1.42",
+      "mac": "3E:7A:19:00:C2:88",
+      "vendor": "Randomized / private MAC",
+      "protocol": "UDP",
+      "packets": 310,
+      "first_seen": "2026-10-20T10:02:12",
+      "last_seen": "2026-10-20T10:04:05"
+    },
+    {
+      "ip": "192.168.1.1",
+      "mac": "00:E0:4C:68:01:02",
+      "vendor": "Realtek",
+      "protocol": "ICMP",
+      "packets": 95,
+      "first_seen": "2026-10-20T10:00:00",
+      "last_seen": "2026-10-20T10:04:09"
+    }
   ],
   "alerts": [
-    {"severity": "high", "message": "Possible port scan", "time": "2026-10-20T10:02:00"}
+    {
+      "id": 1,
+      "severity": "high",
+      "message": "Possible port scan",
+      "time": "2026-10-20T10:02:00",
+      "src": "192.168.1.42",
+      "detail": "28 distinct host/port targets in 10s",
+      "source": "zeek"
+    },
+    {
+      "id": 2,
+      "severity": "medium",
+      "message": "Plaintext credentials sent to 192.168.1.80:80",
+      "time": "2026-10-20T10:03:20",
+      "src": "192.168.1.25",
+      "detail": "Credential values masked (****)",
+      "source": "detection"
+    },
+    {
+      "id": 3,
+      "severity": "low",
+      "message": "Unusual DNS query volume",
+      "time": "2026-10-20T10:03:55",
+      "src": "192.168.1.25",
+      "detail": "",
+      "source": "zeek"
+    }
   ]
 }

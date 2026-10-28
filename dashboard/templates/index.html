@@ -1,148 +1,107 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Pocket Packet Sniffer - Dashboard</title>
-  <style>
-    body { font-family: sans-serif; margin: 20px; }
-    .panel { border: 1px solid #999; padding: 10px; margin-bottom: 15px; }
-    .box { border: 1px dashed #bbb; height: 80px; }
-  </style>
+  <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
-  <h1>Pocket Packet Sniffer</h1>
-
-  <div class="panel" id="session-controls">
-    <h2>Session Controls</h2>
-    <label>Interface: <select id="interface"></select></label>
-    <button id="start-btn">Start</button>
-    <button id="pause-btn">Pause</button>
-    <button id="stop-btn">Stop</button>
-    <p>Status: <b id="status">idle</b></p>
-    <p id="message"></p>
+  <!-- ===== Sign-in / first-run setup (PPS-F-021, PPS-SR-004) ===== -->
+  <div id="auth" class="auth" hidden>
+    <form id="auth-form" class="auth-card" autocomplete="on">
+      <h1>Pocket Packet Sniffer</h1>
+      <p id="auth-intro" class="muted"></p>
+      <label>Username <input id="auth-user" autocomplete="username" required minlength="3" maxlength="64"></label>
+      <label>Password <input id="auth-pass" type="password" autocomplete="current-password" required minlength="8" maxlength="128"></label>
+      <label id="auth-confirm-row" hidden>Confirm password <input id="auth-confirm" type="password" autocomplete="new-password" minlength="8" maxlength="128"></label>
+      <p id="auth-error" class="error" role="alert"></p>
+      <button id="auth-submit" class="primary" type="submit">Sign in</button>
+      <p class="muted small">Capture only networks and devices you own or have permission to test.</p>
+    </form>
   </div>
 
-  <div class="panel" id="live-stats">
-    <h2>Live Traffic Statistics</h2>
-    <p id="no-session">No active session</p>
-    <div id="stats-content" hidden>
-      <p>Packets/sec: <b id="packets-per-sec">0</b></p>
-      <h3>Top Talkers</h3>
-      <table border="1" cellpadding="4">
-        <thead><tr><th>IP</th><th>Packets</th></tr></thead>
-        <tbody id="talkers-body"></tbody>
-      </table>
-      <h3>Protocol Breakdown</h3>
-      <table border="1" cellpadding="4">
-        <thead><tr><th>Protocol</th><th>Packets</th></tr></thead>
-        <tbody id="protocols-body"></tbody>
-      </table>
-    </div>
+  <div id="app" hidden>
+    <header class="topbar">
+      <strong class="brand">Pocket Packet Sniffer</strong>
+      <span id="mode-badge" class="badge"></span>
+      <span id="zeek-badge" class="badge"></span>
+      <span id="link-badge" class="badge" title="How live updates arrive"></span>
+      <span class="spacer"></span>
+      <span id="whoami" class="muted"></span>
+      <button id="logout-btn" class="ghost">Sign out</button>
+    </header>
+
+    <!-- ===== Session controls (PPS-F-004, PPS-F-013) ===== -->
+    <section class="controls" id="session-controls" aria-label="Session controls">
+      <label>Interface <select id="interface"></select></label>
+      <label>Capture filter <input id="filter" placeholder="e.g. tcp port 80" maxlength="200" spellcheck="false"></label>
+      <label>Session name <input id="session-name" placeholder="optional" maxlength="80"></label>
+      <div class="btns">
+        <button id="start-btn" class="primary">Start</button>
+        <button id="pause-btn">Pause</button>
+        <button id="stop-btn" class="danger">Stop</button>
+      </div>
+      <p class="statusline">Status: <b id="status" class="chip idle">idle</b> <span id="session-id" class="muted"></span></p>
+      <p id="message" class="error" role="alert"></p>
+    </section>
+
+    <!-- ===== Live statistics (PPS-F-011) ===== -->
+    <section class="pulse panel" id="live-stats" aria-label="Live traffic statistics">
+      <div class="pulse-read">
+        <span id="packets-per-sec" class="big">0</span>
+        <span class="muted">packets / sec</span>
+        <span id="total-packets" class="muted small"></span>
+      </div>
+      <div class="pulse-chart">
+        <canvas id="pulse" role="img" aria-label="Packets per second over the last 90 seconds"></canvas>
+        <p id="no-session" class="empty">No active session. Pick an interface and press Start.</p>
+      </div>
+    </section>
+
+    <main class="grid">
+      <section class="panel" aria-label="Protocol breakdown">
+        <h2>Protocol breakdown</h2>
+        <div id="protocols-body" class="bars"></div>
+      </section>
+      <section class="panel" aria-label="Top talkers">
+        <h2>Top talkers</h2>
+        <div id="talkers-body" class="bars"></div>
+      </section>
+
+      <!-- ===== Hosts (PPS-F-010, PPS-F-012) ===== -->
+      <section class="panel wide" id="hosts" aria-label="Hosts">
+        <div class="panel-head"><h2>Hosts <span id="host-count" class="muted"></span></h2>
+          <input id="host-search" type="search" placeholder="Search IP, MAC, vendor, protocol" aria-label="Search hosts"></div>
+        <div class="scroll"><table>
+          <thead><tr><th>IP address</th><th>MAC</th><th>Vendor</th><th>Protocol</th><th class="num">Packets</th><th>Last seen</th></tr></thead>
+          <tbody id="hosts-body"></tbody></table></div>
+        <p id="hosts-empty" class="empty">No hosts observed yet.</p>
+      </section>
+
+      <!-- ===== Alerts (PPS-F-014, PPS-SR-005) ===== -->
+      <section class="panel wide" id="alerts" aria-label="Alerts">
+        <h2>Alerts <span id="alert-count" class="muted"></span></h2>
+        <div id="alerts-body" class="alerts"></div>
+        <p id="alerts-empty" class="empty">No alerts. Zeek notices and detections appear here.</p>
+      </section>
+
+      <!-- ===== Sessions / export (PPS-F-016, PPS-F-017) ===== -->
+      <section class="panel wide" id="sessions" aria-label="Session history">
+        <h2>Session history</h2>
+        <div class="scroll"><table>
+          <thead><tr><th>Name</th><th>Interface</th><th>Started</th><th>Status</th><th>Export / open</th></tr></thead>
+          <tbody id="sessions-body"></tbody></table></div>
+        <p id="sessions-empty" class="empty">Sessions you capture are listed here.</p>
+      </section>
+    </main>
   </div>
 
-  <div class="panel" id="hosts">
-    <h2>Hosts</h2>
-    <div class="box"></div>
-  </div>
+  <dialog id="session-dialog">
+    <div class="dialog-head"><h2 id="dialog-title"></h2><button id="dialog-close" class="ghost">Close</button></div>
+    <div id="dialog-body"></div>
+  </dialog>
 
-  <div class="panel" id="alerts">
-    <h2>Alerts</h2>
-    <div class="box"></div>
-  </div>
-
-  <script>
-    const interfaceSelect = document.getElementById("interface");
-    const startBtn = document.getElementById("start-btn");
-    const pauseBtn = document.getElementById("pause-btn");
-    const stopBtn = document.getElementById("stop-btn");
-    const statusEl = document.getElementById("status");
-    const messageEl = document.getElementById("message");
-    const noSessionEl = document.getElementById("no-session");
-    const statsContentEl = document.getElementById("stats-content");
-    const packetsEl = document.getElementById("packets-per-sec");
-    const talkersBody = document.getElementById("talkers-body");
-    const protocolsBody = document.getElementById("protocols-body");
-
-    async function loadInterfaces() {
-      const res = await fetch("/api/interfaces");
-      const data = await res.json();
-      for (const name of data.interfaces) {
-        const option = document.createElement("option");
-        option.value = name;
-        option.textContent = name;
-        interfaceSelect.appendChild(option);
-      }
-    }
-
-    function updateControls(status) {
-      const active = status === "running" || status === "paused";
-      statusEl.textContent = status;
-      interfaceSelect.disabled = active;
-      startBtn.disabled = active;
-      pauseBtn.disabled = !active;
-      stopBtn.disabled = !active;
-      pauseBtn.textContent = status === "paused" ? "Resume" : "Pause";
-    }
-
-    async function refreshStatus() {
-      const res = await fetch("/api/capture/status");
-      const data = await res.json();
-      updateControls(data.status);
-    }
-
-    function showStats(data) {
-      packetsEl.textContent = data.packets_per_sec;
-      talkersBody.innerHTML = "";
-      for (const talker of data.top_talkers) {
-        const row = talkersBody.insertRow();
-        row.insertCell().textContent = talker.ip;
-        row.insertCell().textContent = talker.packets;
-      }
-      protocolsBody.innerHTML = "";
-      for (const [name, count] of Object.entries(data.protocols)) {
-        const row = protocolsBody.insertRow();
-        row.insertCell().textContent = name;
-        row.insertCell().textContent = count;
-      }
-      noSessionEl.hidden = true;
-      statsContentEl.hidden = false;
-    }
-
-    async function refreshStats() {
-      const status = statusEl.textContent;
-      if (status === "paused") return;
-      if (status !== "running") {
-        noSessionEl.hidden = false;
-        statsContentEl.hidden = true;
-        return;
-      }
-      const res = await fetch("/api/stats");
-      if (!res.ok) return;
-      showStats(await res.json());
-    }
-
-    async function sendAction(url, body) {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body || {})
-      });
-      const data = await res.json();
-      messageEl.textContent = res.ok ? "" : data.message;
-      await refreshStatus();
-      refreshStats();
-    }
-
-    startBtn.onclick = () => sendAction("/api/capture/start", { interface: interfaceSelect.value });
-    stopBtn.onclick = () => sendAction("/api/capture/stop");
-    pauseBtn.onclick = () => sendAction(
-      statusEl.textContent === "paused" ? "/api/capture/resume" : "/api/capture/pause"
-    );
-
-    loadInterfaces();
-    refreshStatus().then(refreshStats);
-    setInterval(refreshStatus, 1000);
-    setInterval(refreshStats, 2000);
-  </script>
+  <script src="/static/app.js"></script>
 </body>
 </html>
