@@ -1,12 +1,4 @@
-import json
-from pathlib import Path
-
-MOCK_FILE = Path(__file__).parent.parent / "mock" / "mock_data.json"
-
-
-def load_ground_truth():
-    with open(MOCK_FILE, "r") as f:
-        return json.load(f)
+from helpers import load_ground_truth, wait_for_type
 
 
 def within_5_percent(actual, expected):
@@ -51,3 +43,22 @@ def test_tc_dash_01_stats_refused_when_stopped(running_client):
     response = running_client.get("/api/stats")
     assert response.status_code == 409
     assert response.get_json()["errorCode"] == "INVALID_STATE"
+
+
+def test_tc_dash_01_stats_pushed_at_least_every_2s(running_client, live_connect):
+    ws = live_connect()
+    first, _ = wait_for_type(ws, "stats", 5)
+    second, gap = wait_for_type(ws, "stats", 5)
+    assert first is not None
+    assert second is not None
+    assert gap <= 2.5  # 2s refresh + 0.5s tolerance for timing jitter
+
+
+def test_tc_dash_01_stats_over_websocket_match_mock_data(running_client, live_connect):
+    expected = load_ground_truth()
+    ws = live_connect()
+    message, _ = wait_for_type(ws, "stats", 5)
+    stats = message["data"]
+    assert within_5_percent(stats["packets_per_sec"], expected["packets_per_sec"])
+    for name, count in expected["protocols"].items():
+        assert within_5_percent(stats["protocols"][name], count)
