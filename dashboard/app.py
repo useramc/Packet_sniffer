@@ -148,6 +148,9 @@ def resume_capture():
 
 @sock.route("/ws/live")
 def live(ws):
+    if not request.args.get("token"):
+        ws.close(1008, "Missing token")
+        return
     while True:
         if session["status"] == "running":
             for message in build_live_messages():

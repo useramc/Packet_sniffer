@@ -90,6 +90,7 @@
     const hostsBody = document.getElementById("hosts-body");
     const packetsBody = document.getElementById("packets-body");
     const wsStatusEl = document.getElementById("ws-status");
+    const PLACEHOLDER_TOKEN = "placeholder-token"; // Placeholder only. Will be replaced by the token from /api/auth/login.
     let allHosts = [];
     let socket = null;
 
@@ -214,7 +215,8 @@
 
     function connectLive() {
       const protocol = location.protocol === "https:" ? "wss://" : "ws://";
-      socket = new WebSocket(protocol + location.host + "/ws/live");
+      const url = protocol + location.host + "/ws/live?token=" + encodeURIComponent(PLACEHOLDER_TOKEN);
+      socket = new WebSocket(url);
       socket.onopen = () => { wsStatusEl.textContent = "connected"; };
       socket.onmessage = (event) => handleLiveMessage(JSON.parse(event.data));
       socket.onclose = () => {

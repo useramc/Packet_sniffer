@@ -223,3 +223,23 @@ Data comes from the static `mock/mock_data.json`. Uses the `flask-sock` library.
 ### `showNoSession(status)`
 - **Input arguments:** `status` (str)
 - **Output:** for `idle` or `stopped`, hides the stats, hosts and alerts content and shows "No active session". For `running` or `paused`, does nothing, so the last values stay on screen.
+
+# Dashboard – Placeholder Auth Token
+
+The page sends a placeholder token when it opens the live connection: `/ws/live?token=placeholder-token`.
+The server only checks that a token is present. It does not validate the value.
+The placeholder will be replaced by the real token from `/api/auth/login` later.
+
+## Functions (`app.py`)
+
+### `live(ws)` → WebSocket `/ws/live` (updated)
+- **Input arguments:** `ws` (the WebSocket connection), and the query parameter `token` in the URL
+- **Output:**
+  - `token` missing or empty: closes the connection immediately with code 1008 ("Missing token")
+  - `token` present: behaves as described in the PPS-9 section
+
+## Functions (`templates/index.html`, JavaScript)
+
+### `connectLive()` (updated)
+- **Input arguments:** none
+- **Output:** opens the WebSocket to `/ws/live?token=<PLACEHOLDER_TOKEN>`. Constant `PLACEHOLDER_TOKEN` is defined at the top of the script.
