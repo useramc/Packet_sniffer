@@ -2,7 +2,6 @@ from datetime import datetime, timezone
 
 from detection import detect_suspicious_traffic
 
-
 records = []
 
 ports = [21, 22, 23, 80, 443]
