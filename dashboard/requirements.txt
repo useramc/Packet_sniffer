@@ -1,0 +1,6 @@
+# Dashboard runtime (in addition to the repo-root requirements.txt)
+Flask>=3.1
+flask-sock>=0.7        # /ws/live WebSocket push (UI falls back to polling if absent)
+scapy>=2.5             # live capture + packet decoding (needs Npcap on Windows / libpcap on Linux)
+bcrypt>=4.2
+PyJWT>=2.9
