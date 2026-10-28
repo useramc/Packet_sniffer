@@ -121,105 +121,54 @@ The panel is refreshed by polling every 2 seconds.
 
   Runs every 2 seconds, and right after every button action.
 
-# PPS-F-014 – Alert Panel
+# Dashboard v2 – integrated with Auth, Capture, Zeek and Export
 
-Alerts come from the static `mock/mock_data.json`. The panel is refreshed by polling every 2 seconds.
+The dashboard is now wired to the real modules instead of mock-only data. Nothing outside `dashboard/` was changed.
 
-## Functions (`app.py`)
+## Run
+```
+pip install -r requirements.txt            # repo root
+pip install -r dashboard/requirements.txt
+cd dashboard
+python app.py                              # http://127.0.0.1:5000
+```
+First visit shows **Create administrator** (PPS-SR-004: no default password). Afterwards: **Sign in**.
 
-### `get_alerts()` → `GET /api/alerts`
-- **Input arguments:** none
-- **Output:** `{alerts: [...]}`, newest first (sorted by `time`). Each alert is `{severity, message, time}`.
-- **Errors:** `INVALID_STATE` (409) if the session status is not `running`
+| Env var | Purpose |
+|---|---|
+| `PPS_MODE` | `auto` (default: live if capture works, else demo data), `live`, `mock` |
+| `PPS_JWT_SECRET` | JWT signing secret. If unset a random per-process one is generated (sessions end on restart) |
+| `PPS_TLS_CERT` / `PPS_TLS_KEY` | Serve HTTPS (PPS-SR-002) |
+| `PPS_HOST` / `PPS_PORT` | Bind address (default `127.0.0.1:5000`) |
+| `PPS_DATA_DIR` | Sessions (pcap), audit log, auth DB (default `dashboard/data/`) |
+| `ZEEK_BIN` | Path to Zeek (used by `backend/zeek_runner.py`) |
+| `PPS_OUI_FILE` | Optional Wireshark `manuf` file for full MAC-vendor lookup |
 
-## Functions (`templates/index.html`, JavaScript)
+Live capture needs Npcap (Windows) or libpcap (Linux) and Administrator/root rights. Capture only networks you own or may test.
 
-### `showAlerts(data)`
-- **Input arguments:** `data` (object returned by `/api/alerts`)
-- **Output:** builds one card per alert showing a colored severity label, the message and the timestamp. Colors: critical = red, high = orange, medium = yellow, low = green.
+## What is integrated
+| Dashboard feature | Uses | Requirement |
+|---|---|---|
+| Login / first-run setup, 401 on unauthenticated access, lockout after 5 failures | `backend/auth` (bcrypt + JWT, SQLite) | PPS-F-021, SR-001, SR-004 |
+| Interface list, interface validation | `capture/interfaces.py` | PPS-F-001, F-004 |
+| Start / pause / resume / stop with BPF filter, PCAP written per session | Scapy `AsyncSniffer` + `PcapWriter` (`live_capture.py`) | PPS-F-002, F-005, F-013, F-020 |
+| Live stats, protocol breakdown, top talkers, packets/sec chart | `analytics.py` (Normalizer role) | PPS-F-009, F-011 |
+| Hosts: IP, MAC, vendor (OUI), protocol, packets, search | `analytics.py` (Device Profiler role) | PPS-F-010, F-012 |
+| Alerts: port-scan and plaintext-credential detection, plus Zeek `notice.log` after Stop | `analytics.py`, `backend/zeek_runner.py` | PPS-F-008, F-014 |
+| Redaction of captured secrets in alert details | `analytics.py` | PPS-SR-005 |
+| Session naming / tags / history / re-open | `app.py` `/api/sessions` | PPS-F-017 |
+| Export CSV / PCAP / Zeek logs (one-time 5-minute link) | `/api/export/session/{id}` | PPS-F-016 |
+| `/ws/live` push every second, polling fallback | `flask-sock` | PPS-NF-001 |
+| Audit log (`data/audit.log`, mode 600) | `audit.py` | PPS-SR-006 |
+| Zeek `conn.log` records | `backend/parsers/zeek_parser.py` via `/api/logs/conn` | PPS-F-007, F-009 |
 
-### `refreshAlerts()`
-- **Input arguments:** none
-- **Output:**
-  - `running`: fetches `/api/alerts` and calls `showAlerts()`
-  - `paused`: does nothing, so the last alerts stay on screen
-  - `idle` or `stopped`: hides the cards and shows "No active session"
+## New / changed endpoints (all require `Authorization: Bearer <token>` except those marked public)
+`GET /api/auth/state` (public), `POST /api/auth/setup` (public, first run only), `POST /api/auth/login` (public),
+`GET /api/config`, `GET /api/snapshot`, `GET /api/hosts`, `GET /api/alerts`, `GET /api/logs/conn`,
+`GET /api/sessions`, `GET|PATCH /api/sessions/{id}`, `POST /api/export/session/{id}` `{format}`,
+`GET /api/download/{token}` (public, one-time), `WS /ws/live?token=`.
+`GET /api/interfaces` now also returns `details: [{id, name, description, addresses}]`. Errors keep the `{errorCode, message}` envelope.
 
-  Runs every 2 seconds, and right after every button action.
-
-# PPS-F-012 – Active Hosts and Packet List
-
-Hosts and packets come from the static `mock/mock_data.json`. Both tables are refreshed by polling every 2 seconds.
-The packet list is capped at the latest 20 rows (`MAX_PACKETS` in `app.py`).
-
-## Functions (`app.py`)
-
-### `get_hosts()` → `GET /api/hosts`
-- **Input arguments:** none
-- **Output:** `{hosts: [...]}`. Each host is `{ip, mac, vendor, protocol, packets, first_seen}`; `mac` can be `null`.
-- **Errors:** `INVALID_STATE` (409) if the session status is not `running`
-
-### `get_packets()` → `GET /api/packets`
-- **Input arguments:** none
-- **Output:** `{packets: [...]}`, newest first, at most 20. Each packet is `{time, src_ip, dst_ip, protocol, src_port, dst_port, length}`; ports can be `null`.
-- **Errors:** `INVALID_STATE` (409) if the session status is not `running`
-
-## Functions (`templates/index.html`, JavaScript)
-
-### `renderHosts()`
-- **Input arguments:** none (uses the stored host list and the search box text)
-- **Output:** fills the Active Hosts table with the hosts whose IP, MAC, vendor or protocol contains the search text (case-insensitive). A missing MAC is shown as "N/A". Runs on every keystroke in the search box.
-
-### `showPackets(data)`
-- **Input arguments:** `data` (object returned by `/api/packets`)
-- **Output:** fills the Captured Packets table. A missing port is shown as "N/A".
-
-### `refreshHosts()`
-- **Input arguments:** none
-- **Output:**
-  - `running`: fetches `/api/hosts` and `/api/packets`, then calls `renderHosts()` and `showPackets()`
-  - `paused`: does nothing, so the last values stay on screen
-  - `idle` or `stopped`: hides the tables and shows "No active session"
-
-  Runs every 2 seconds, and right after every button action.
-
-# PPS-9 – Live Data over WebSocket
-
-The WebSocket replaces polling for the four data panels (stats, hosts, packets, alerts).
-The REST endpoints (`/api/stats`, `/api/hosts`, `/api/packets`, `/api/alerts`) still exist.
-Session status and the session buttons still use REST (status is polled every 1 second).
-Data comes from the static `mock/mock_data.json`. Uses the `flask-sock` library.
-
-## Functions (`app.py`)
-
-### `build_live_messages()`
-- **Input arguments:** none
-- **Output:** a list of 4 messages, each `{type, data}`:
-  - `stats`: `{packets_per_sec, top_talkers, protocols}`
-  - `hosts`: `{hosts: [...]}`
-  - `packets`: `{packets: [...]}`, newest first, at most 20
-  - `alerts`: `{alerts: [...]}`, newest first
-
-### `live(ws)` → WebSocket `/ws/live`
-- **Input arguments:** `ws` (the WebSocket connection, provided by flask-sock). Any text the client sends (e.g. "refresh") triggers an immediate push.
-- **Output:**
-  - `running`: sends the 4 messages from `build_live_messages()` as JSON text every 2 seconds (`PUSH_INTERVAL`)
-  - `paused`, `idle` or `stopped`: sends nothing. The connection stays open.
-
-## Functions (`templates/index.html`, JavaScript)
-
-### `connectLive()`
-- **Input arguments:** none
-- **Output:** opens the WebSocket to `/ws/live`. Sets the "Live updates" label to `connected` or `disconnected`. Reconnects every 2 seconds after the connection closes.
-
-### `handleLiveMessage(message)`
-- **Input arguments:** `message` (object `{type, data}`)
-- **Output:** calls `showStats()`, `showHosts()`, `showPackets()` or `showAlerts()` by `type`. Ignores the message unless the status is `running` or `paused`.
-
-### `showHosts(data)`
-- **Input arguments:** `data` (object `{hosts: [...]}`)
-- **Output:** stores the hosts, calls `renderHosts()` and shows the hosts panel content
-
-### `showNoSession(status)`
-- **Input arguments:** `status` (str)
-- **Output:** for `idle` or `stopped`, hides the stats, hosts and alerts content and shows "No active session". For `running` or `paused`, does nothing, so the last values stay on screen.
+## Tests
+`pytest` from the repo root: 40 tests. TC-DASH-02 and TC-DASH-04 are no longer skipped.
+Tests force `PPS_MODE=mock` and a throwaway auth DB.
