@@ -1,10 +1,10 @@
-
 import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from flask import Flask, jsonify, request
 
+from detection import detect_suspicious_traffic
 from parsers.zeek_parser import ZeekLogParser
 from zeek_runner import analyze_pcap
 
@@ -35,6 +35,46 @@ def get_connection_logs():
     }), 200
 
 
+@app.route("/api/alerts", methods=["GET"])
+def get_alerts():
+    parser = ZeekLogParser(ZEEK_LOGS_PATH)
+    records = parser.parse_conn_log()
+    alerts = detect_suspicious_traffic(records)
+
+    return jsonify({
+        "status": "success",
+        "count": len(alerts),
+        "data": alerts,
+    }), 200
+
+
+@app.route("/api/alerts/test", methods=["POST"])
+def test_alert_detection():
+    payload = request.get_json(silent=True)
+
+    if not isinstance(payload, dict):
+        return jsonify({
+            "status": "error",
+            "message": "A JSON object is required.",
+        }), 400
+
+    records = payload.get("records")
+
+    if not isinstance(records, list):
+        return jsonify({
+            "status": "error",
+            "message": "'records' must be a list.",
+        }), 400
+
+    alerts = detect_suspicious_traffic(records)
+
+    return jsonify({
+        "status": "success",
+        "count": len(alerts),
+        "data": alerts,
+    }), 200
+
+
 @app.route("/api/zeek/analyze", methods=["POST"])
 def analyze_capture():
     uploaded_file = request.files.get("pcap")
@@ -57,7 +97,6 @@ def analyze_capture():
         with TemporaryDirectory(prefix="zeek-pcap-") as temp_dir:
             pcap_path = Path(temp_dir) / filename
             uploaded_file.save(str(pcap_path))
-
             result = analyze_pcap(pcap_path)
 
         return jsonify(result), 200
