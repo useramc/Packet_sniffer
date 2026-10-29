@@ -162,3 +162,8 @@ backend/zeek_runs/
 
 # Other generated files
 *.db
+
+# Dashboard runtime data (captured PCAPs, audit log, auth DB) - never commit
+dashboard/data/
+*.pcap
+*.pcapng
