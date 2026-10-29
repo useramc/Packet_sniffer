@@ -35,10 +35,11 @@ jobs:
       - name: Lint (ruff)
         run: ruff check .
 
-      - name: Run tests
+            - name: Run tests
         env:
           # CI-only fallback secret; real deployments use repository secrets.
           PPS_JWT_SECRET: ${{ secrets.PPS_JWT_SECRET != '' && secrets.PPS_JWT_SECRET || 'ci-only-throwaway-secret' }}
+        run: python -m pytest -v
         run: pytest -v
 
   dashboard:
@@ -62,7 +63,7 @@ jobs:
 
       - name: Run dashboard tests
         run: python -m pytest -q
-
+origin/develop
   secret-scan:
     name: Secret scan
     runs-on: ubuntu-latest
