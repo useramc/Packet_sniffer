@@ -65,6 +65,8 @@ def test_login_with_unknown_username_returns_401_not_404():
 
 def test_valid_token_grants_access_to_protected_route():
     creds = {"username": "admin", "password": "correct-horse-battery"}
+    # pragma: allowlist nextline secret
+    client.post("/api/auth/setup", json={"username": "admin", "password": "correct-horse-battery"})
     client.post("/api/auth/setup", json=creds)
     login_resp = client.post("/api/auth/login", json=creds)
     token = login_resp.json()["token"]
