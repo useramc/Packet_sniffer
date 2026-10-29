@@ -26,6 +26,7 @@ def test_login_token_unlocks_api(raw_client):
 
 def test_account_locks_after_repeated_failures(raw_client):
     for _ in range(5):
+        # pragma: allowlist nextline secret
         raw_client.post("/api/auth/login", json={"username": USER, "password": "nope-nope-nope"})
     r = raw_client.post("/api/auth/login", json={"username": USER, "password": PASSWORD})
     assert r.status_code == 403 and r.get_json()["errorCode"] == "ACCOUNT_LOCKED"
