@@ -39,8 +39,7 @@ jobs:
         env:
           # CI-only fallback secret; real deployments use repository secrets.
           PPS_JWT_SECRET: ${{ secrets.PPS_JWT_SECRET != '' && secrets.PPS_JWT_SECRET || 'ci-only-throwaway-secret' }}
-        run: pytest -v
-
+                run: python -m pytest -v
   secret-scan:
     name: Secret scan
     runs-on: ubuntu-latest
