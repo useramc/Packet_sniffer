@@ -8,8 +8,8 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 
-from auth.routes import get_current_user
 import storage
+from auth.routes import get_current_user
 
 router = APIRouter(
     prefix="/api/export",
@@ -40,7 +40,7 @@ def export_session(capture_id: str, format: str):
             detail="format must be pcap, zeek-logs, or csv",
         )
 
-    metadata, files = _stored_files(capture_id)
+    _metadata, files = _stored_files(capture_id)
 
     if format == "pcap":
         pcap_entry = next(
