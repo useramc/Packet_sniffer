@@ -242,6 +242,29 @@ def get_snapshot():
     return jsonify(build_snapshot())
 
 
+@app.route("/api/hosts")
+def get_hosts():
+    if session["status"] != "running":
+        return error("INVALID_STATE", "No active capture session", 409)
+    return jsonify({"hosts": load_mock_data()["hosts"]})
+
+
+@app.route("/api/packets")
+def get_packets():
+    if session["status"] != "running":
+        return error("INVALID_STATE", "No active capture session", 409)
+    packets = load_mock_data()["packets"]
+    packets = sorted(packets, key=lambda packet: packet["time"], reverse=True)
+    return jsonify({"packets": packets[:MAX_PACKETS]})
+
+@app.route("/api/alerts")
+def get_alerts():
+    if session["status"] != "running":
+        return error("INVALID_STATE", "No active capture session", 409)
+    alerts = load_mock_data()["alerts"]
+    alerts = sorted(alerts, key=lambda alert: alert["time"], reverse=True)
+    return jsonify({"alerts": alerts})
+
 @app.route("/api/capture/start", methods=["POST"])
 @auth_required
 def start_capture():
