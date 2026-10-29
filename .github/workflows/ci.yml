@@ -41,6 +41,28 @@ jobs:
           PPS_JWT_SECRET: ${{ secrets.PPS_JWT_SECRET != '' && secrets.PPS_JWT_SECRET || 'ci-only-throwaway-secret' }}
         run: pytest -v
 
+  dashboard:
+    name: Dashboard (test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r dashboard/requirements.txt
+          pip install pytest
+
+      - name: Run dashboard tests
+        run: python -m pytest -q
+
   secret-scan:
     name: Secret scan
     runs-on: ubuntu-latest
