@@ -31,6 +31,7 @@ except ImportError:  # polling fallback in the UI keeps working
     Sock = None
 
 app = Flask(__name__)
+sock = Sock(app)
 MOCK_FILE = Path(__file__).parent / "mock" / "mock_data.json"
 SESSIONS_DIR = integ.DATA_DIR / "sessions"
 
@@ -53,6 +54,22 @@ failed_logins = {}
 def load_mock_data():
     with open(MOCK_FILE, "r") as f:
         return json.load(f)
+
+
+def build_live_messages():
+    data = load_mock_data()
+    packets = sorted(data["packets"], key=lambda packet: packet["time"], reverse=True)
+    alerts = sorted(data["alerts"], key=lambda alert: alert["time"], reverse=True)
+    return [
+        {"type": "stats", "data": {
+            "packets_per_sec": data["packets_per_sec"],
+            "top_talkers": data["top_talkers"],
+            "protocols": data["protocols"],
+        }},
+        {"type": "hosts", "data": {"hosts": data["hosts"]}},
+        {"type": "packets", "data": {"packets": packets[:MAX_PACKETS]}},
+        {"type": "alerts", "data": {"alerts": alerts}},
+    ]
 
 
 def error(code, message, http_status):
@@ -242,6 +259,23 @@ def get_snapshot():
     return jsonify(build_snapshot())
 
 
+
+@app.route("/api/hosts")
+def get_hosts():
+    if session["status"] != "running":
+        return error("INVALID_STATE", "No active capture session", 409)
+    return jsonify({"hosts": load_mock_data()["hosts"]})
+
+
+@app.route("/api/packets")
+def get_packets():
+    if session["status"] != "running":
+        return error("INVALID_STATE", "No active capture session", 409)
+    packets = load_mock_data()["packets"]
+    packets = sorted(packets, key=lambda packet: packet["time"], reverse=True)
+    return jsonify({"packets": packets[:MAX_PACKETS]})
+
+
 @app.route("/api/alerts")
 def get_alerts():
     if session["status"] != "running":
@@ -249,6 +283,7 @@ def get_alerts():
     alerts = load_mock_data()["alerts"]
     alerts = sorted(alerts, key=lambda alert: alert["time"], reverse=True)
     return jsonify({"alerts": alerts})
+
 
 @app.route("/api/capture/start", methods=["POST"])
 @auth_required
