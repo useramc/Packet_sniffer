@@ -17,6 +17,7 @@ from fastapi import Depends, FastAPI
 from auth import store
 from auth.routes import get_current_user
 from auth.routes import router as auth_router
+from export_routes import router as export_router
 
 
 @asynccontextmanager
@@ -27,6 +28,7 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(title="Pocket Packet Sniffer API", version="0.1.0", lifespan=lifespan)
 app.include_router(auth_router)
+app.include_router(export_router)
 
 
 @app.get("/api/health")
