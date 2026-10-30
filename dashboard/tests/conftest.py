@@ -5,6 +5,7 @@ import threading
 # Must be set before `app` is imported: deterministic demo data, throwaway secrets/db.
 _tmp = tempfile.mkdtemp(prefix="pps-test-")
 os.environ["PPS_MODE"] = "mock"
+# pragma: allowlist nextline secret
 os.environ["PPS_JWT_SECRET"] = "test-secret-not-for-production-0123456789abcdef"
 os.environ["PPS_AUTH_DB"] = os.path.join(_tmp, "auth.db")
 os.environ["PPS_DATA_DIR"] = _tmp
@@ -14,7 +15,7 @@ import pytest
 from integration import security, store
 from simple_websocket import Client
 from werkzeug.serving import make_server
-
+# pragma: allowlist nextline secret
 USER, PASSWORD = "analyst", "correct-horse-battery"
 
 
