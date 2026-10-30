@@ -61,3 +61,17 @@ def test_interface_error_before_file_creation(driver, monkeypatch):
     with pytest.raises(CaptureError, match="unavailable"):
         driver.start("missing")
     assert not list(driver.output_dir.glob("*.pcap"))
+
+
+@pytest.mark.parametrize("interface", ["ethernet-lab", r"\Device\NPF_{ethernet-lab}"])
+def test_ethernet_frames_and_adapter_identifiers(driver, interface):
+    driver.start(interface)
+    frames = [scapy.Ether(src="02:00:00:00:00:01", dst="02:00:00:00:00:02") /
+              scapy.IP(src="192.0.2.1", dst="192.0.2.2") / scapy.UDP(dport=53) /
+              scapy.Raw(bytes([i])) for i in range(5)]
+    assert driver._sniffer.kwargs["iface"] == interface
+    for frame in frames:
+        driver._sniffer.kwargs["prn"](frame)
+    result = driver.stop()
+    assert [bytes(p) for p in scapy.rdpcap(result["pcapPath"])] == [bytes(p) for p in frames]
+    assert result["packets"] == len(frames)
