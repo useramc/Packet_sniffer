@@ -106,6 +106,18 @@ class CaptureSession:
         """Safe application termination follows the same flush/join path as stop."""
         return self.stop()
 
+    def switch_interface(self, interface):
+        """Validate the destination before stopping; keep each interface in its own file."""
+        with self._lock:
+            select_interface(interface)
+            if self.status not in {"running", "paused"}:
+                raise CaptureError("Start a capture before switching interfaces.")
+            bpf, name = self.filter, self.session_name
+            previous = self.stop()
+            current = self.start(interface, bpf, name)
+            current["previousSession"] = previous
+            return current
+
     def stop(self):
         """Join packet delivery before flushing and closing its output."""
         with self._lock:

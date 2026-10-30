@@ -127,3 +127,27 @@ def test_writer_failure_surfaces_in_state(driver, monkeypatch):
     driver._on_packet(packet())
     assert driver.snapshot()["status"] == "error"
     assert driver.terminate()["error"]
+
+
+def test_switch_preserves_old_pcap_and_starts_new_session(driver):
+    old = driver.start("wifi-lab")
+    driver._on_packet(packet())
+    result = driver.switch_interface("ethernet-lab")
+    assert result["interface"] == "ethernet-lab"
+    assert result["sessionId"] != old["sessionId"]
+    assert result["previousSession"]["status"] == "stopped"
+    assert len(scapy.rdpcap(old["pcapPath"])) == 1
+    driver._on_packet(packet())
+    assert len(scapy.rdpcap(driver.stop()["pcapPath"])) == 1
+
+
+def test_invalid_switch_preserves_running_session(driver, monkeypatch):
+    before = driver.start("wifi-lab")
+    def missing(_):
+        raise CaptureError("Interface unavailable")
+    monkeypatch.setattr(session, "select_interface", missing)
+    with pytest.raises(CaptureError, match="unavailable"):
+        driver.switch_interface("missing")
+    assert driver.snapshot()["sessionId"] == before["sessionId"]
+    assert driver.snapshot()["status"] == "running"
+    driver.stop()
