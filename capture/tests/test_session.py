@@ -151,3 +151,30 @@ def test_invalid_switch_preserves_running_session(driver, monkeypatch):
     assert driver.snapshot()["sessionId"] == before["sessionId"]
     assert driver.snapshot()["status"] == "running"
     driver.stop()
+
+
+@pytest.mark.parametrize("expression", ["tcp port 80", "host 192.0.2.1", "udp", "port 53"])
+def test_compiled_filter_is_passed_to_capture(driver, monkeypatch, expression):
+    calls = []
+    monkeypatch.setattr(session, "validate_filter", lambda expr, iface: calls.append((expr, iface)) or expr)
+    driver.start("ethernet-lab", expression)
+    assert calls == [(expression, "ethernet-lab")]
+    assert driver._sniffer.kwargs["filter"] == expression
+    driver.stop()
+
+
+def test_invalid_filter_never_starts_unfiltered_capture(driver, monkeypatch):
+    def invalid(*_):
+        raise CaptureError("Invalid BPF filter")
+    monkeypatch.setattr(session, "validate_filter", invalid)
+    with pytest.raises(CaptureError, match="Invalid BPF"):
+        driver.start("ethernet-lab", "invalid (")
+    assert driver._sniffer is None
+    assert not list(driver.output_dir.glob("*.pcap"))
+
+
+@pytest.mark.parametrize("expression", [None, 123, "\x00", "a" * 4097])
+def test_filter_input_validation(expression):
+    from capture.filters import validate_filter
+    with pytest.raises(CaptureError, match="filter must be text"):
+        validate_filter(expression, "unused")

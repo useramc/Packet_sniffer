@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .interfaces import CaptureError, scapy_api, select_interface
+from .filters import validate_filter
 
 
 class CaptureSession:
@@ -56,6 +57,7 @@ class CaptureSession:
             if self._sniffer is not None:
                 raise CaptureError("Capture already active; stop it before starting another session.")
             iface = select_interface(interface)
+            bpf = validate_filter(bpf, iface.id)
             api = scapy_api()
             stream = None
             try:
@@ -110,6 +112,7 @@ class CaptureSession:
         """Validate the destination before stopping; keep each interface in its own file."""
         with self._lock:
             select_interface(interface)
+            validate_filter(self.filter, interface)
             if self.status not in {"running", "paused"}:
                 raise CaptureError("Start a capture before switching interfaces.")
             bpf, name = self.filter, self.session_name
