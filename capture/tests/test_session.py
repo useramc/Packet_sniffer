@@ -178,3 +178,28 @@ def test_filter_input_validation(expression):
     from capture.filters import validate_filter
     with pytest.raises(CaptureError, match="filter must be text"):
         validate_filter(expression, "unused")
+
+
+def test_worker_error_cannot_be_reported_as_successful_stop(driver):
+    driver.start("wifi-lab")
+    driver._sniffer.exception = OSError("adapter removed")
+    assert driver.stop()["status"] == "error"
+
+
+def test_packet_delivery_on_another_thread_can_stop_without_deadlock(driver):
+    import threading
+    driver.start("wifi-lab")
+    delivery = threading.Thread(target=lambda: [driver._on_packet(packet()) for _ in range(30)])
+    delivery.start()
+    delivery.join(timeout=2)
+    assert not delivery.is_alive()
+    assert driver.stop()["packets"] == 30
+
+
+def test_native_packet_linktype_not_forced_to_ethernet(driver):
+    driver.start("wifi-lab")
+    native = scapy.RadioTap() / scapy.Dot11(type=0, subtype=8, addr1="ff:ff:ff:ff:ff:ff",
+                                         addr2="02:00:00:00:00:01", addr3="02:00:00:00:00:01")
+    driver._on_packet(native)
+    result = driver.stop()
+    assert bytes(scapy.rdpcap(result["pcapPath"])[0]) == bytes(native)
