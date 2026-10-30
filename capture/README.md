@@ -100,3 +100,10 @@ PCAPs, and overwrite protection. The dedicated capture CI runs these tests on
 Windows and Linux. Record real adapter selection and authorized live-capture
 results on both OSes separately for TC-COMP-01 and capture acceptance evidence;
 mocked tests alone do not establish full Windows/Linux runtime compatibility.
+
+
+## PPS-40 reusable capture service
+
+`from capture.session import CaptureSession` provides `start(interface, bpf="", session_name="")`, `snapshot()` and `stop()`. Pass an exact discovered interface ID and a writable output directory to the constructor. Each start creates an exclusive UUID-named PCAP; stop joins delivery and flushes the file. The returned `pcapPath` is the handoff for the analysis owner to call the existing `feed_pcap(session_id, pcap_path)` contract. The service imports no teammate module and exposes no unauthenticated HTTP routes. Backend owners keep authentication at the API boundary.
+
+TC-CAP-01 offline evidence: injected synthetic Ethernet-encapsulated Wi-Fi traffic round-trips byte-for-byte through the real Scapy PCAP writer/reader. This does not prove capture on a physical Wi-Fi adapter, timing, Wireshark UI validation or authenticated dashboard integration. Execute those on authorized lab traffic before acceptance sign-off.
