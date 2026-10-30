@@ -145,3 +145,38 @@ python -m capture run --settings capture/settings.json --output-dir capture/data
 Settings JSON has version (1), interface and filter keys. Saves validate before atomic replacement; loads revalidate adapter availability and BPF. A removed adapter or invalid filter raises an actionable error and never changes to another interface or captures without a filter. `start_saved(manager, path, session_name)` applies persisted values to a fresh session. CLI run closes the PCAP on timeout or Ctrl+C. CaptureSession methods are also available to authenticated backend integrators without changing their modules.
 
 TC-SYS-01 offline checks cover persistent JSON, applying saved values to a new manager, corrupt/unsupported formats and unavailable adapter/invalid filter errors. Authentication/browser integration (TC-SYS-02), physical timing and BPF traffic exclusion still require lab validation. The CLI is a local operator tool, not a replacement authentication layer for HTTP services.
+
+
+## Authenticated capture API and backend launcher
+
+PPS-42/43/45 capture-side backend integration is implemented in `capture/api.py` and `capture/server.py`. No backend, dashboard, auth, analysis or shared-contract files are edited. The launcher extends the existing FastAPI backend with the capture router, reuses its auth routes and `get_current_user` dependency, preserves its startup lifecycle and safely stops capture at shutdown. The Flask dashboard remains a separate application; its controls are not automatically redirected to this server.
+
+Install and launch from the repository root:
+
+```powershell
+python -m pip install -r capture/requirements-api.txt
+$env:PPS_JWT_SECRET = python -c "import secrets; print(secrets.token_hex(32))"
+$env:PPS_AUTH_DB = 'capture/data/auth.db'
+python -m capture.server
+```
+
+The API listens on http://127.0.0.1:5000; `/docs` provides a browser API client. Use existing `/api/auth/setup` once, then `/api/auth/login`, and use its token as `Authorization: Bearer <token>`. Every capture endpoint requires authentication:
+
+| Endpoint | Method | Request / behavior |
+|---|---|---|
+| /api/capture/interfaces | GET | Discovered adapter records with exact IDs |
+| /api/capture/status | GET | Current capture snapshot |
+| /api/capture/start | POST | `{interface, filter, sessionName}`; omit interface to use saved settings |
+| /api/capture/stop | POST | `{sessionId}`; flush/join and return the closed PCAP path |
+| /api/capture/pause | POST | `{sessionId}` |
+| /api/capture/resume | POST | `{sessionId}` |
+| /api/capture/terminate | POST | `{sessionId}`; safe termination |
+| /api/capture/switch | POST | `{sessionId, interface}`; new ID/file, previousSession in response |
+| /api/capture/settings | GET | Load and revalidate saved configuration |
+| /api/capture/settings | PUT | `{interface, filter}`; validate and atomically persist |
+
+Examples in JSON are object shapes, not literal JSON values. Invalid/missing/expired tokens receive 401 from the existing auth module; unknown session IDs return 404; conflicting transitions return 409; invalid capture requests/settings/filter errors return a JSON `{errorCode, message}` envelope. Capture data location defaults to `capture/data`; set `PPS_CAPTURE_DATA_DIR` to override it. Only one API worker/process may own a given capture device/session; do not launch several workers against the same capture store.
+
+`create_router(manager, settings_path, authenticate)` is also available to the integration owner for mounting in another FastAPI application. It takes the existing auth dependency, so it does not implement a competing credential store. Completed PCAP paths remain available to the analysis owner through returned session snapshots. No Zeek/storage/export behavior is duplicated.
+
+The HTTP integration tests execute real setup/login/JWT validation, authenticated session controls, PCAP writes, saved-settings restoration and rejection of unauthenticated requests. Packet arrival is injected, so physical capture and timing checks remain separate lab acceptance tests. Startup and stop waits now use bounded joins; a late-starting worker is cancelled and its writer is kept open until safe teardown instead of closing underneath it.

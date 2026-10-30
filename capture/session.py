@@ -1,6 +1,7 @@
 """Reusable capture service. No dashboard, authentication or analysis imports."""
 
 import threading
+import math
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -13,6 +14,8 @@ class CaptureSession:
     """One exclusive PCAP per session; caller owns authentication and retention."""
 
     def __init__(self, output_dir, *, ready_timeout=2.0):
+        if not isinstance(ready_timeout, (int, float)) or not math.isfinite(ready_timeout) or ready_timeout <= 0:
+            raise CaptureError("Capture readiness timeout must be a positive finite number.")
         self.output_dir = Path(output_dir)
         self.ready_timeout = ready_timeout
         self._lock = threading.RLock()
@@ -60,6 +63,7 @@ class CaptureSession:
             bpf = validate_filter(bpf, iface.id)
             api = scapy_api()
             stream = None
+            cancelled = threading.Event()
             try:
                 self.output_dir.mkdir(parents=True, exist_ok=True)
                 self.session_id = uuid.uuid4().hex
@@ -71,19 +75,27 @@ class CaptureSession:
                 self.packets, self._error = 0, None
                 self.started_at = datetime.now(timezone.utc).isoformat()
                 ready = threading.Event()
+
+                def on_ready():
+                    if cancelled.is_set():
+                        self._sniffer.stop(join=False)
+                    ready.set()
+
                 self._sniffer = api.AsyncSniffer(
                     iface=iface.id, filter=bpf or None, store=False,
-                    prn=self._on_packet, started_callback=ready.set)
+                    prn=self._on_packet, started_callback=on_ready)
                 self.status = "running"
                 self._sniffer.start()
                 if not ready.wait(self.ready_timeout) or not self._sniffer.running:
                     raise CaptureError("Capture socket did not become ready; check interface, permissions and Npcap/libpcap.")
                 return self.snapshot()
             except Exception as exc:
+                cancelled.set()
+                self.status = "error"
                 try:
                     self.stop()
                 finally:
-                    if stream is not None:
+                    if stream is not None and self._sniffer is None:
                         stream.close()
                     self.status = "error"
                 if isinstance(exc, CaptureError):
@@ -129,12 +141,15 @@ class CaptureSession:
                     self._error = "Capture worker failed; check interface/driver."
                 try:
                     if self._sniffer.running:
-                        self._sniffer.stop(join=True)
-                    else:
-                        self._sniffer.join()
+                        self._sniffer.stop(join=False)
+                    self._sniffer.join(timeout=self.ready_timeout)
                 except Exception as exc:
                     if getattr(getattr(self._sniffer, "thread", None), "is_alive", lambda: False)():
+                        self.status = "error"
                         raise CaptureError("Capture thread did not stop; retry stop before starting another session.") from exc
+                if getattr(getattr(self._sniffer, "thread", None), "is_alive", lambda: False)():
+                    self.status = "error"
+                    raise CaptureError("Capture thread is still stopping; retry stop before starting another session.")
                 self._sniffer = None
             with self._packet_lock:
                 if self._writer is not None:
