@@ -125,3 +125,9 @@ TC-CAP-02 / TC-SYS-03 offline evidence covers ten repeated sessions with all 20 
 `switch_interface(new_id)` validates the destination, stops/flushed the current session, and starts a new session preserving filter and display name. The result includes `previousSession` with the old closed PCAP path and a fresh sessionId/pcapPath for the new interface. A missing destination leaves the old session running; driver/start failures after stop leave an explicit error state and the previous PCAP intact. Backend owners can expose this method through their existing authenticated controls.
 
 TC-CAP-04 offline checks validate independent, readable old/new PCAPs and invalid-destination behavior. The SRS 3-second real-interface switching limit still requires lab measurement; thread readiness has a 2-second budget, but OS socket teardown/setup time is not guaranteed by that budget.
+
+## PPS-44 BPF filtering
+
+Pass a BPF expression to `start(interface_id, bpf='tcp port 80')`. The capture service compiles it through Npcap/libpcap before opening a file or starting a sniffer, then passes the unchanged expression to Scapy's capture socket. Invalid expressions, missing compilers, non-text inputs and embedded NULs fail closed with CaptureError; there is no unfiltered fallback. Switching revalidates the filter against the destination interface. Empty/whitespace filter means intentionally unfiltered capture.
+
+TC-CAP-05 offline checks cover forwarding protocol/host/port expressions and rejection before capture startup. This host has no Npcap/libpcap provider, so real BPF matching/exclusion remains pending lab execution: generate matching TCP port 80 and nonmatching UDP/other-port traffic, capture with tcp port 80, inspect every record and compare with the generated traffic. Port 80 is a port match, not proof of HTTP payload classification.
