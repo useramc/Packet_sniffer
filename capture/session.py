@@ -125,6 +125,8 @@ class CaptureSession:
         """Join packet delivery before flushing and closing its output."""
         with self._lock:
             if self._sniffer is not None:
+                if getattr(self._sniffer, "exception", None):
+                    self._error = "Capture worker failed; check interface/driver."
                 try:
                     if self._sniffer.running:
                         self._sniffer.stop(join=True)
@@ -136,9 +138,15 @@ class CaptureSession:
                 self._sniffer = None
             with self._packet_lock:
                 if self._writer is not None:
-                    if not self._writer.header_present:
-                        self._writer.write_header(None)
-                    self._writer.close()
-                    self._writer = None
+                    try:
+                        if not self._writer.header_present:
+                            self._writer.write_header(None)
+                        self._writer.close()
+                    except OSError as exc:
+                        self._error = "PCAP flush failed; check storage before reusing this session."
+                        self.status = "error"
+                        raise CaptureError(self._error) from exc
+                    finally:
+                        self._writer = None
                 self.status = "error" if self._error else "stopped"
             return self.snapshot()

@@ -131,3 +131,17 @@ TC-CAP-04 offline checks validate independent, readable old/new PCAPs and invali
 Pass a BPF expression to `start(interface_id, bpf='tcp port 80')`. The capture service compiles it through Npcap/libpcap before opening a file or starting a sniffer, then passes the unchanged expression to Scapy's capture socket. Invalid expressions, missing compilers, non-text inputs and embedded NULs fail closed with CaptureError; there is no unfiltered fallback. Switching revalidates the filter against the destination interface. Empty/whitespace filter means intentionally unfiltered capture.
 
 TC-CAP-05 offline checks cover forwarding protocol/host/port expressions and rejection before capture startup. This host has no Npcap/libpcap provider, so real BPF matching/exclusion remains pending lab execution: generate matching TCP port 80 and nonmatching UDP/other-port traffic, capture with tcp port 80, inspect every record and compare with the generated traffic. Port 80 is a port match, not proof of HTTP payload classification.
+
+## PPS-45 saved settings and standalone CLI
+
+From the repository root, using authorized lab traffic:
+
+```powershell
+python -m capture interfaces
+python -m capture save-settings --interface '<exact adapter ID>' --filter 'tcp port 80' --settings capture/settings.json
+python -m capture run --settings capture/settings.json --output-dir capture/data --seconds 10 --session-name lab
+```
+
+Settings JSON has version (1), interface and filter keys. Saves validate before atomic replacement; loads revalidate adapter availability and BPF. A removed adapter or invalid filter raises an actionable error and never changes to another interface or captures without a filter. `start_saved(manager, path, session_name)` applies persisted values to a fresh session. CLI run closes the PCAP on timeout or Ctrl+C. CaptureSession methods are also available to authenticated backend integrators without changing their modules.
+
+TC-SYS-01 offline checks cover persistent JSON, applying saved values to a new manager, corrupt/unsupported formats and unavailable adapter/invalid filter errors. Authentication/browser integration (TC-SYS-02), physical timing and BPF traffic exclusion still require lab validation. The CLI is a local operator tool, not a replacement authentication layer for HTTP services.
