@@ -75,3 +75,55 @@ def test_ethernet_frames_and_adapter_identifiers(driver, interface):
     result = driver.stop()
     assert [bytes(p) for p in scapy.rdpcap(result["pcapPath"])] == [bytes(p) for p in frames]
     assert result["packets"] == len(frames)
+
+
+def test_ten_start_stop_cycles_preserve_all_delivered_packets(driver):
+    paths = set()
+    for _ in range(10):
+        driver.start("wifi-lab", session_name="lab")
+        with pytest.raises(CaptureError, match="already active"):
+            driver.start("ethernet-lab")
+        for _ in range(20):
+            driver._on_packet(packet())
+        result = driver.terminate()
+        paths.add(result["pcapPath"])
+        assert len(scapy.rdpcap(result["pcapPath"])) == 20
+        assert result["sessionName"] == "lab"
+        assert driver.stop()["status"] == "stopped"
+    assert len(paths) == 10
+
+
+def test_pause_resume_state_and_data(driver):
+    with pytest.raises(CaptureError, match="running"):
+        driver.pause()
+    driver.start("wifi-lab")
+    driver._on_packet(packet())
+    assert driver.pause()["status"] == "paused"
+    driver._on_packet(packet())
+    assert driver.resume()["status"] == "running"
+    driver._on_packet(packet())
+    result = driver.stop()
+    assert len(scapy.rdpcap(result["pcapPath"])) == 2
+
+
+def test_startup_failure_closes_file_and_allows_retry(driver, monkeypatch):
+    api = session.scapy_api()
+    original = api.AsyncSniffer.start
+    monkeypatch.setattr(api.AsyncSniffer, "start", lambda self: None)
+    with pytest.raises(CaptureError, match="ready"):
+        driver.start("wifi-lab")
+    failed_path = driver.pcap_path
+    failed_path.unlink()  # Detect leaked file handles on Windows.
+    monkeypatch.setattr(api.AsyncSniffer, "start", original)
+    driver.start("wifi-lab")
+    driver.stop()
+
+
+def test_writer_failure_surfaces_in_state(driver, monkeypatch):
+    driver.start("wifi-lab")
+    def full(_):
+        raise OSError("disk full")
+    monkeypatch.setattr(driver._writer, "write", full)
+    driver._on_packet(packet())
+    assert driver.snapshot()["status"] == "error"
+    assert driver.terminate()["error"]

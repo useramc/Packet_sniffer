@@ -26,10 +26,15 @@ class CaptureSession:
         self.interface = None
         self.filter = ""
         self.started_at = None
+        self.session_name = ""
 
     def snapshot(self):
         with self._lock, self._packet_lock:
+            if self._sniffer is not None and getattr(self._sniffer, "exception", None):
+                self.status = "error"
+                self._error = "Capture worker failed; stop capture and check interface/driver."
             return {"sessionId": self.session_id, "status": self.status,
+                    "sessionName": self.session_name,
                     "startedAt": self.started_at, "interface": self.interface,
                     "filter": self.filter, "packets": self.packets,
                     "pcapPath": str(self.pcap_path) if self.pcap_path else None,
@@ -60,6 +65,7 @@ class CaptureSession:
                 stream = self.pcap_path.open("xb")
                 self._writer = api.PcapWriter(stream, sync=True)
                 self.interface, self.filter = iface.id, bpf
+                self.session_name = session_name
                 self.packets, self._error = 0, None
                 self.started_at = datetime.now(timezone.utc).isoformat()
                 ready = threading.Event()
@@ -81,6 +87,24 @@ class CaptureSession:
                 if isinstance(exc, CaptureError):
                     raise
                 raise CaptureError("Capture failed; check output storage, interface, permissions and Npcap/libpcap.") from exc
+
+    def pause(self):
+        with self._lock, self._packet_lock:
+            if self.status != "running":
+                raise CaptureError("Only a running capture can be paused.")
+            self.status = "paused"
+        return self.snapshot()
+
+    def resume(self):
+        with self._lock, self._packet_lock:
+            if self.status != "paused":
+                raise CaptureError("Only a paused capture can be resumed.")
+            self.status = "running"
+        return self.snapshot()
+
+    def terminate(self):
+        """Safe application termination follows the same flush/join path as stop."""
+        return self.stop()
 
     def stop(self):
         """Join packet delivery before flushing and closing its output."""
