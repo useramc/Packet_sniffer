@@ -107,3 +107,9 @@ mocked tests alone do not establish full Windows/Linux runtime compatibility.
 `from capture.session import CaptureSession` provides `start(interface, bpf="", session_name="")`, `snapshot()` and `stop()`. Pass an exact discovered interface ID and a writable output directory to the constructor. Each start creates an exclusive UUID-named PCAP; stop joins delivery and flushes the file. The returned `pcapPath` is the handoff for the analysis owner to call the existing `feed_pcap(session_id, pcap_path)` contract. The service imports no teammate module and exposes no unauthenticated HTTP routes. Backend owners keep authentication at the API boundary.
 
 TC-CAP-01 offline evidence: injected synthetic Ethernet-encapsulated Wi-Fi traffic round-trips byte-for-byte through the real Scapy PCAP writer/reader. This does not prove capture on a physical Wi-Fi adapter, timing, Wireshark UI validation or authenticated dashboard integration. Execute those on authorized lab traffic before acceptance sign-off.
+
+## PPS-41 Ethernet capture
+
+Use the same `CaptureSession` with the exact Ethernet adapter ID; no Wi-Fi-specific mode or default adapter is substituted. Normal managed Wi-Fi and Ethernet expose Ethernet frames; native monitor mode is not required. Windows NPF identifiers are preserved. For other hosts' traffic use the authorized switch mirror/tap arrangement in TC-CAP-03; an ordinary switched port cannot see all peer traffic.
+
+TC-CAP-03 offline evidence: multiple synthetic Ethernet frames, MAC addresses and payloads survive PCAP round-trip with Linux-style and Windows-style adapter identifiers. Physical mirrored-port traffic and Wireshark UI validation remain lab checks. Pass the stopped session's sessionId/pcapPath to the analysis owner's existing contract; retention/export remain with that owner.
