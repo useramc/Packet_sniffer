@@ -33,13 +33,12 @@ if not os.environ.get("PPS_JWT_SECRET"):
     os.environ["PPS_JWT_SECRET"] = secrets.token_hex(32)
 os.environ.setdefault("PPS_AUTH_DB", str(DATA_DIR / "pps_auth.db"))
 
-from auth import config as auth_config  # noqa: E402
-from auth import security, store  # noqa: E402
+from auth import security, store  # noqa: F401
 
 try:  # capture module needs scapy only when actually used
-    from capture.interfaces import CaptureError, list_interfaces, select_interface  # noqa: E402
+    from capture.interfaces import CaptureError, list_interfaces, select_interface
     CAPTURE_IMPORTED = True
-except Exception:  # pragma: no cover
+except (ImportError, OSError, RuntimeError):
     CAPTURE_IMPORTED = False
 
     class CaptureError(RuntimeError):
@@ -59,7 +58,7 @@ def detect_mode():
         return wanted
     try:
         return "live" if CAPTURE_IMPORTED and list_interfaces() else "mock"
-    except Exception:
+    except (OSError, RuntimeError):
         return "mock"
 
 
@@ -69,7 +68,7 @@ def zeek_status():
         return {"available": True, "path": find_zeek()}
     except FileNotFoundError as exc:
         return {"available": False, "message": str(exc)}
-    except Exception as exc:  # pragma: no cover
+    except (ImportError, OSError, RuntimeError) as exc:
         return {"available": False, "message": str(exc)}
 
 
