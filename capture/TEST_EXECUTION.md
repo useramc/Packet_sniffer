@@ -19,3 +19,12 @@ Result: Ruff passed; 41 offline tests passed. No traffic was captured from the h
 ## Integration boundary
 
 All changes are within capture/. The dashboard's existing LiveCapture is unchanged and does not automatically use CaptureSession or saved settings. The backend/security owner must call the public capture API through the existing authenticated application boundary for TC-SYS-02. Module use and PCAP handoff are documented in capture/README.md; no teammate's modules, shared contracts or CI were edited.
+
+
+## Capture API completion follow-up
+
+The capture-owned FastAPI router and backend launcher now provide authenticated discovery, status, start, stop, pause, resume, terminate, interface switching, and saved-settings endpoints. The launcher reuses the existing backend and auth lifecycle without editing teammate files. The Flask dashboard is still a separate application; frontend wiring is outside this capture-only change.
+
+Validation: 62 capture tests passed locally on Windows/Python 3.14, including real auth setup/login/JWT verification and real PCAP I/O with injected packet arrival. Ruff and git diff --check passed. HTTP checks cover all capture endpoints rejecting missing/invalid tokens, authorized controls, stale session IDs, duplicate start, saved settings applied through HTTP, invalid input/filter handling, and backend launcher startup/shutdown. Lifecycle tests also cover late startup cancellation, bounded joins and invalid timeout values.
+
+TC-SYS-02 capture-to-authenticated-API coding and automated integration checks are complete. This is not a physical adapter or Flask dashboard browser acceptance pass. Lab Wi-Fi/Ethernet capture, actual BPF compilation/exclusion, physical start/switch timings, four-hour reliability and browser UI verification remain unexecuted. No extra capture driver was installed and no live network traffic was captured.

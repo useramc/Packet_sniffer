@@ -22,7 +22,7 @@ def driver(tmp_path, monkeypatch):
         def stop(self, join=True):
             self.running = False
 
-        def join(self):
+        def join(self, timeout=None):
             pass
 
     api = SimpleNamespace(PcapWriter=scapy.PcapWriter, AsyncSniffer=Sniffer)
@@ -203,3 +203,26 @@ def test_native_packet_linktype_not_forced_to_ethernet(driver):
     driver._on_packet(native)
     result = driver.stop()
     assert bytes(scapy.rdpcap(result["pcapPath"])[0]) == bytes(native)
+
+
+def test_late_start_is_cancelled_without_closing_an_active_writer(driver, monkeypatch):
+    api = session.scapy_api()
+    def late_start(sniffer):
+        sniffer.thread = SimpleNamespace(is_alive=lambda: True)
+    monkeypatch.setattr(api.AsyncSniffer, "start", late_start)
+    with pytest.raises(CaptureError, match="still stopping"):
+        driver.start("wifi-lab")
+    assert driver.status == "error"
+    assert driver._writer is not None
+    driver._sniffer.running = True
+    driver._sniffer.kwargs["started_callback"]()
+    assert not driver._sniffer.running
+    driver._sniffer.thread.is_alive = lambda: False
+    driver.stop()
+    assert driver._writer is None
+
+
+@pytest.mark.parametrize("value", [0, -1, float("nan"), float("inf"), "bad"])
+def test_invalid_readiness_timeout(value, tmp_path):
+    with pytest.raises(CaptureError, match="timeout"):
+        session.CaptureSession(tmp_path, ready_timeout=value)
