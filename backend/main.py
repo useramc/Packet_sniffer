@@ -18,8 +18,9 @@ from auth import store
 from auth.routes import get_current_user
 from auth.routes import router as auth_router
 from export_routes import router as export_router
+from log_rotation import configure_application_logging
 
-
+configure_application_logging()
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     store.init_db()
