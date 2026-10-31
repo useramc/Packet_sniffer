@@ -11,17 +11,38 @@ sys.path so the dashboard's own ``app`` module is never shadowed by backend/app.
 """
 import os
 import secrets
+import subprocess
 import sys
 from pathlib import Path
 
 DASHBOARD_DIR = Path(__file__).resolve().parent
 REPO_ROOT = DASHBOARD_DIR.parent
 DATA_DIR = Path(os.environ.get("PPS_DATA_DIR", DASHBOARD_DIR / "data"))
+
+
+def _restrict_dir(path):
+    """PPS-SR-003: owner-only access (icacls on Windows, chmod 700 elsewhere).
+
+    Never raises: a permissions failure must not stop the application.
+    """
+    try:
+        if os.name == "nt":
+            user = os.environ.get("USERNAME")
+            if user:
+                # *S-1-5-18 = SYSTEM, *S-1-5-32-544 = Administrators (language-independent SIDs)
+                subprocess.run(
+                    ["icacls", str(path), "/inheritance:r", "/grant:r",
+                     f"{user}:(OI)(CI)F", "*S-1-5-18:(OI)(CI)F", "*S-1-5-32-544:(OI)(CI)F"],
+                    check=False, capture_output=True,
+                )
+        else:
+            os.chmod(path, 0o700)
+    except Exception:
+        pass
+
+
 DATA_DIR.mkdir(parents=True, exist_ok=True)
-try:
-    os.chmod(DATA_DIR, 0o700)  # PPS-SR-003: captures, audit log and auth DB not world-readable
-except OSError:
-    pass
+_restrict_dir(DATA_DIR)  # PPS-SR-003: captures, audit log and auth DB not readable by other users
 
 for p in (REPO_ROOT / "backend", REPO_ROOT):
     if str(p) not in sys.path:
