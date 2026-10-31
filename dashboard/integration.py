@@ -11,17 +11,38 @@ sys.path so the dashboard's own ``app`` module is never shadowed by backend/app.
 """
 import os
 import secrets
+import subprocess
 import sys
 from pathlib import Path
 
 DASHBOARD_DIR = Path(__file__).resolve().parent
 REPO_ROOT = DASHBOARD_DIR.parent
 DATA_DIR = Path(os.environ.get("PPS_DATA_DIR", DASHBOARD_DIR / "data"))
+
+
+def _restrict_dir(path):
+    """PPS-SR-003: owner-only access (icacls on Windows, chmod 700 elsewhere).
+
+    Never raises: a permissions failure must not stop the application.
+    """
+    try:
+        if os.name == "nt":
+            user = os.environ.get("USERNAME")
+            if user:
+                # *S-1-5-18 = SYSTEM, *S-1-5-32-544 = Administrators (language-independent SIDs)
+                subprocess.run(
+                    ["icacls", str(path), "/inheritance:r", "/grant:r",
+                     f"{user}:(OI)(CI)F", "*S-1-5-18:(OI)(CI)F", "*S-1-5-32-544:(OI)(CI)F"],
+                    check=False, capture_output=True,
+                )
+        else:
+            os.chmod(path, 0o700)
+    except Exception:
+        pass
+
+
 DATA_DIR.mkdir(parents=True, exist_ok=True)
-try:
-    os.chmod(DATA_DIR, 0o700)  # PPS-SR-003: captures, audit log and auth DB not world-readable
-except OSError:
-    pass
+_restrict_dir(DATA_DIR)  # PPS-SR-003: captures, audit log and auth DB not readable by other users
 
 for p in (REPO_ROOT / "backend", REPO_ROOT):
     if str(p) not in sys.path:
@@ -33,13 +54,12 @@ if not os.environ.get("PPS_JWT_SECRET"):
     os.environ["PPS_JWT_SECRET"] = secrets.token_hex(32)
 os.environ.setdefault("PPS_AUTH_DB", str(DATA_DIR / "pps_auth.db"))
 
-from auth import config as auth_config  # noqa: E402
-from auth import security, store  # noqa: E402
+from auth import security, store  # noqa: F401
 
 try:  # capture module needs scapy only when actually used
-    from capture.interfaces import CaptureError, list_interfaces, select_interface  # noqa: E402
+    from capture.interfaces import CaptureError, list_interfaces, select_interface
     CAPTURE_IMPORTED = True
-except Exception:  # pragma: no cover
+except (ImportError, OSError, RuntimeError):
     CAPTURE_IMPORTED = False
 
     class CaptureError(RuntimeError):
@@ -59,7 +79,7 @@ def detect_mode():
         return wanted
     try:
         return "live" if CAPTURE_IMPORTED and list_interfaces() else "mock"
-    except Exception:
+    except (OSError, RuntimeError):
         return "mock"
 
 
@@ -69,7 +89,7 @@ def zeek_status():
         return {"available": True, "path": find_zeek()}
     except FileNotFoundError as exc:
         return {"available": False, "message": str(exc)}
-    except Exception as exc:  # pragma: no cover
+    except (ImportError, OSError, RuntimeError) as exc:
         return {"available": False, "message": str(exc)}
 
 

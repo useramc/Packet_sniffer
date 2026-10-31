@@ -6,6 +6,7 @@ Scapy AsyncSniffer that writes a PCAP (PPS-F-001/002/005, PPS-F-020) and feeds
 Analytics. Zeek is run on the finished PCAP in a background thread
 (PPS-F-006..008) so Stop never blocks the UI.
 """
+import logging
 import re
 import threading
 import time
@@ -13,6 +14,8 @@ from pathlib import Path
 
 from analytics import Analytics
 from integration import CaptureError, read_zeek_tsv, select_interface
+
+logger = logging.getLogger(__name__)
 
 _BPF_OK = re.compile(r"^[\w\s.\-:/()!&|=<>\[\]]{0,200}$")
 
@@ -60,7 +63,7 @@ class LiveCapture:
                     self.writer.write(pkt)
             self.analytics.ingest(pkt)
         except Exception:
-            pass                                  # never let one bad packet kill the sniffer
+            logger.exception('Failed to process captured packet')
 
     def pause(self):
         self.paused = True
@@ -73,7 +76,7 @@ class LiveCapture:
             if self.sniffer is not None and self.sniffer.running:
                 self.sniffer.stop()
         except Exception:
-            pass
+            logger.exception('Failed to stop packet sniffer')
         with self._lock:
             if self.writer:
                 self.writer.close()
@@ -99,4 +102,5 @@ class LiveCapture:
         except FileNotFoundError as exc:
             self.zeek = {"status": "unavailable", "message": str(exc)}
         except Exception as exc:
+            logger.exception('Zeek analysis failed')
             self.zeek = {"status": "error", "message": str(exc)[:300]}

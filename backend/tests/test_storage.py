@@ -152,3 +152,56 @@ def test_list_captures_returns_stored_capture(
         for item in captures
     )
 
+def test_storage_limit_rejects_capture(
+    storage_dir, capture_inputs, monkeypatch
+):
+    pcap, analysis_result = capture_inputs
+    monkeypatch.setattr(storage, "MAX_STORAGE_BYTES", 1)
+
+    with pytest.raises(OSError, match="storage limit"):
+        storage.store_capture(pcap, analysis_result)
+
+
+def test_protected_capture_is_not_deleted_by_retention(
+    storage_dir, capture_inputs
+):
+    pcap, analysis_result = capture_inputs
+    result = storage.store_capture(pcap, analysis_result)
+    capture_id = result["capture_id"]
+
+    storage.protect_capture(capture_id)
+
+    capture_path = storage_dir / capture_id
+    metadata_path = capture_path / "metadata.json"
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    metadata["created_at"] = time.time() - (3 * 86400)
+    metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+
+    outcome = storage.apply_retention(retention_days=1)
+
+    assert capture_id in outcome["protected"]
+    assert capture_path.exists()
+
+
+def test_capture_can_be_unprotected(
+    storage_dir, capture_inputs
+):
+    pcap, analysis_result = capture_inputs
+    result = storage.store_capture(pcap, analysis_result)
+    capture_id = result["capture_id"]
+
+    storage.protect_capture(capture_id)
+    updated = storage.protect_capture(capture_id, protected=False)
+
+    assert updated["protected"] is False
+
+
+def test_storage_status_reports_usage(storage_dir, capture_inputs):
+    pcap, analysis_result = capture_inputs
+    storage.store_capture(pcap, analysis_result)
+
+    status = storage.storage_status()
+
+    assert status["used_bytes"] > 0
+    assert status["max_storage_bytes"] == storage.MAX_STORAGE_BYTES
+    assert status["within_limit"] is True

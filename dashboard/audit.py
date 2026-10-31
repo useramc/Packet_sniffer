@@ -5,7 +5,7 @@ Never records passwords, tokens or packet payloads (SAD 4.4).
 import json
 import os
 import threading
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from integration import DATA_DIR
 
@@ -14,7 +14,7 @@ _lock = threading.Lock()
 
 
 def log(event, user=None, **detail):
-    entry = {"time": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    entry = {"time": datetime.now(UTC).isoformat(timespec="seconds"),
              "event": event, "user": user, **detail}
     with _lock:
         new = not AUDIT_FILE.exists()

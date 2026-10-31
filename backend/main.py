@@ -12,12 +12,15 @@ from auth import store
 from auth.routes import get_current_user
 from auth.routes import router as auth_router
 from export_routes import router as export_router
+from log_rotation import configure_application_logging
 from session_history import (
     add_session_tag,
     get_session,
     get_session_tags,
     list_sessions,
 )
+
+configure_application_logging()
 
 
 @asynccontextmanager
