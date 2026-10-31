@@ -15,6 +15,7 @@ import pytest
 from integration import security, store
 from simple_websocket import Client
 from werkzeug.serving import make_server
+
 # pragma: allowlist nextline secret
 USER, PASSWORD = "analyst", "correct-horse-battery"
 
@@ -86,9 +87,7 @@ def live_connect(client):
     yield connect
 
     for ws in opened:
-        try:
+        if ws.connected:
             ws.close()
-        except Exception:
-            pass
     server.shutdown()
     thread.join()

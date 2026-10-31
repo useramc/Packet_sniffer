@@ -90,7 +90,8 @@ def test_audit_log_records_admin_actions(client):
     client.post("/api/capture/stop")
     events = [e["event"] for e in audit.tail(20)]
     assert "capture_start" in events and "capture_stop" in events
-    assert "password" not in open(audit.AUDIT_FILE).read().lower()
+    with open(audit.AUDIT_FILE, encoding="utf-8") as audit_file:
+        assert "password" not in audit_file.read().lower()
 
 
 def test_conn_log_uses_backend_parser(client):

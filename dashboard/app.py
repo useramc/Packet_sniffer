@@ -68,7 +68,7 @@ def reset_state():
 def user_from_token(token):
     try:
         return security.decode_access_token(token)
-    except Exception:
+    except Exception:  # noqa: BLE001
         return None
 
 
@@ -488,7 +488,7 @@ if Sock is not None:
                 ws.send(json.dumps({"type": "snapshot", "payload": build_snapshot()}))
                 ws.receive(timeout=1)             # doubles as the 1 s tick; raises when client leaves
         except Exception:
-            pass
+            app.logger.debug('WebSocket client disconnected', exc_info=True)
 
 
 def main():
