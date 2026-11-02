@@ -7,17 +7,14 @@ Analytics. Zeek is run on the finished PCAP in a background thread
 (PPS-F-006..008) so Stop never blocks the UI.
 """
 import logging
-import re
 import threading
 import time
 from pathlib import Path
 
 from analytics import Analytics
-from integration import CaptureError, read_zeek_tsv, select_interface
+from integration import CaptureError, read_zeek_tsv, select_interface, validate_filter
 
 logger = logging.getLogger(__name__)
-
-_BPF_OK = re.compile(r"^[\w\s.\-:/()!&|=<>\[\]]{0,200}$")
 
 
 class LiveCapture:
@@ -31,9 +28,10 @@ class LiveCapture:
         self._lock = threading.Lock()
 
     def start(self, session_dir: Path, interface_id: str, bpf: str = ""):
-        if not _BPF_OK.match(bpf or ""):
-            raise CaptureError("Capture filter contains unsupported characters.")
         iface = select_interface(interface_id)
+        # Map presets (HTTPS -> tcp port 443) and compile with libpcap so an
+        # invalid filter is rejected here instead of capturing nothing.
+        bpf = validate_filter(bpf or "", iface.id)
         from scapy import all as api
         session_dir.mkdir(parents=True, exist_ok=True)
         self.pcap_path = session_dir / "capture.pcap"
@@ -83,24 +81,42 @@ class LiveCapture:
                 self.writer = None
         self.sniffer = None
 
-    def stop(self):
-        self._close()
-        if self.pcap_path and self.pcap_path.exists():
-            threading.Thread(target=self._run_zeek, daemon=True).start()
+    def stop(self, on_zeek=None):
+        """Stop capturing and run Zeek on this session's PCAP in the background.
 
-    def _run_zeek(self):
+        on_zeek(status) receives every Zeek status change for *this* PCAP, so the
+        result is stored with the session that produced it even if a new session
+        has started by the time Zeek finishes.
+        """
+        self._close()
+        pcap = self.pcap_path
+        if pcap and pcap.exists():
+            self._set_zeek(pcap, on_zeek, {"status": "running"})
+            threading.Thread(target=self._run_zeek, args=(pcap, on_zeek), daemon=True).start()
+        else:
+            self._set_zeek(pcap, on_zeek, {"status": "done", "log_files": [],
+                                           "message": "No PCAP was written for this session."})
+
+    def _set_zeek(self, pcap, on_zeek, status):
+        if pcap == self.pcap_path:               # still the latest session -> header badge
+            self.zeek = status
+        if on_zeek:
+            on_zeek(status)
+
+    def _run_zeek(self, pcap, on_zeek=None):
         try:
             from zeek_runner import analyze_pcap
-            self.zeek = {"status": "running"}
-            result = analyze_pcap(self.pcap_path)
+            result = analyze_pcap(pcap)
             out = Path(result["output_dir"])
             notices = read_zeek_tsv(out / "notice.log") if (out / "notice.log").exists() else []
             conns = len(read_zeek_tsv(out / "conn.log")) if (out / "conn.log").exists() else 0
-            self.analytics.add_zeek_alerts(notices)
-            self.zeek = {"status": "done", "log_files": result["log_files"], "output_dir": str(out),
-                         "connections": conns, "notices": len(notices)}
+            if pcap == self.pcap_path:           # never add old notices to a newer session
+                self.analytics.add_zeek_alerts(notices)
+            status = {"status": "done", "log_files": result["log_files"], "output_dir": str(out),
+                      "connections": conns, "notices": len(notices)}
         except FileNotFoundError as exc:
-            self.zeek = {"status": "unavailable", "message": str(exc)}
+            status = {"status": "unavailable", "message": str(exc)}
         except Exception as exc:
             logger.exception('Zeek analysis failed')
-            self.zeek = {"status": "error", "message": str(exc)[:300]}
+            status = {"status": "error", "message": str(exc)[:300]}
+        self._set_zeek(pcap, on_zeek, status)

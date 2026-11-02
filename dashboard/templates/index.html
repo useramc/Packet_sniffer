@@ -35,7 +35,7 @@
     <!-- ===== Session controls (PPS-F-004, PPS-F-013) ===== -->
     <section class="controls" id="session-controls" aria-label="Session controls">
       <label>Interface <select id="interface"></select></label>
-      <label>Capture filter <input id="filter" placeholder="e.g. tcp port 80" maxlength="200" spellcheck="false"></label>
+      <label>Capture filter <input id="filter" placeholder="e.g. HTTPS, DNS or tcp port 80" title="Preset (ARP, DHCP, DNS, HTTP, HTTPS, ICMP, SSH, TCP, UDP ...) or a BPF expression" maxlength="200" spellcheck="false"></label>
       <label>Session name <input id="session-name" placeholder="optional" maxlength="80"></label>
       <div class="btns">
         <button id="start-btn" class="primary">Start</button>
@@ -93,6 +93,7 @@
           <thead><tr><th>Name</th><th>Interface</th><th>Started</th><th>Status</th><th>Export / open</th></tr></thead>
           <tbody id="sessions-body"></tbody></table></div>
         <p id="sessions-empty" class="empty">Sessions you capture are listed here.</p>
+        <p id="sessions-message" class="muted" role="status" aria-live="polite"></p>
       </section>
     </main>
   </div>
