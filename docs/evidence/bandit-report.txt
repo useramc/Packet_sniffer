@@ -1,0 +1,250 @@
+Run started:2026-10-29 10:10:09.538049+00:00
+
+Test results:
+>> Issue: [B404:blacklist] Consider possible security implications associated with the subprocess module.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_imports.html#b404-import-subprocess
+   Location: backend\zeek_runner.py:4:0
+3	import shutil
+4	import subprocess
+5	import time
+
+--------------------------------------------------
+>> Issue: [B603:subprocess_without_shell_equals_true] subprocess call - check for execution of untrusted input.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b603_subprocess_without_shell_equals_true.html
+   Location: backend\zeek_runner.py:42:17
+41	    try:
+42	        result = subprocess.run(
+43	            [find_zeek(), "-C", "-r", str(pcap_path)],
+44	            cwd=str(output_dir),
+45	            capture_output=True,
+46	            text=True,
+47	            timeout=30,
+48	            check=False,
+49	        )
+50	    except subprocess.TimeoutExpired as exc:
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: capture\tests\test_capture.py:19:4
+18	    found = interfaces.list_interfaces()
+19	    assert found[0].id == adapter.network_name
+20	    assert found[0].addresses == ("192.0.2.1", "2001:db8::1")
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: capture\tests\test_capture.py:20:4
+19	    assert found[0].id == adapter.network_name
+20	    assert found[0].addresses == ("192.0.2.1", "2001:db8::1")
+21	    assert interfaces.select_interface(adapter.network_name) == found[0]
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: capture\tests\test_capture.py:21:4
+20	    assert found[0].addresses == ("192.0.2.1", "2001:db8::1")
+21	    assert interfaces.select_interface(adapter.network_name) == found[0]
+22	    with pytest.raises(CaptureError, match="unavailable"):
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: capture\tests\test_capture.py:29:4
+28	    monkeypatch.setattr(interfaces, "scapy_api", lambda: SimpleNamespace(conf=SimpleNamespace(ifaces=provider)))
+29	    assert interfaces.list_interfaces() == []
+30	    with pytest.raises(CaptureError, match="unavailable"):
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: capture\tests\test_capture.py:54:8
+53	    def fake_sniff(**kwargs):
+54	        assert kwargs["iface"] == selected.id
+55	        assert kwargs["timeout"] == 2
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: capture\tests\test_capture.py:55:8
+54	        assert kwargs["iface"] == selected.id
+55	        assert kwargs["timeout"] == 2
+56	        assert kwargs["count"] == 3
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: capture\tests\test_capture.py:56:8
+55	        assert kwargs["timeout"] == 2
+56	        assert kwargs["count"] == 3
+57	        assert kwargs["store"] is False
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: capture\tests\test_capture.py:57:8
+56	        assert kwargs["count"] == 3
+57	        assert kwargs["store"] is False
+58	        kwargs["prn"](packet)
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: capture\tests\test_capture.py:62:4
+61	    output = tmp_path / "test.pcap"
+62	    assert smoke.smoke_capture(selected.id, str(output), seconds=2, count=3) == 1
+63	    saved = rdpcap(str(output))
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: capture\tests\test_capture.py:64:4
+63	    saved = rdpcap(str(output))
+64	    assert len(saved) == 1
+65	    assert bytes(saved[0]) == bytes(packet)
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: capture\tests\test_capture.py:65:4
+64	    assert len(saved) == 1
+65	    assert bytes(saved[0]) == bytes(packet)
+66	    # A second run must not overwrite the first capture.
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: capture\tests\test_capture.py:70:4
+69	        smoke.smoke_capture(selected.id, str(output))
+70	    assert output.read_bytes() == original
+71	
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: capture\tests\test_capture.py:78:4
+77	    output = tmp_path / "empty.pcap"
+78	    assert smoke.smoke_capture(selected.id, str(output)) == 0
+79	    assert len(rdpcap(str(output))) == 0
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: capture\tests\test_capture.py:79:4
+78	    assert smoke.smoke_capture(selected.id, str(output)) == 0
+79	    assert len(rdpcap(str(output))) == 0
+80	
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: capture\tests\test_capture.py:107:4
+106	    monkeypatch.setattr(interfaces, "list_interfaces", lambda: [])
+107	    assert main(["select", "--interface", "missing"]) == 1
+108	    assert "unavailable" in capsys.readouterr().err
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: capture\tests\test_capture.py:108:4
+107	    assert main(["select", "--interface", "missing"]) == 1
+108	    assert "unavailable" in capsys.readouterr().err
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: dashboard\app.py:113:26
+112	    if session["status"] == "running":
+113	        pps = round(pps * random.uniform(0.97, 1.03))   # stays within the 5 % AC of PPS-F-011
+114	    stats = {"packets_per_sec": pps, "top_talkers": d["top_talkers"], "protocols": d["protocols"]}
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: dashboard\app.py:490:8
+489	                ws.receive(timeout=1)             # doubles as the 1 s tick; raises when client leaves
+490	        except Exception:
+491	            pass
+492	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: dashboard\live_capture.py:62:8
+61	            self.analytics.ingest(pkt)
+62	        except Exception:
+63	            pass                                  # never let one bad packet kill the sniffer
+64	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: dashboard\live_capture.py:75:8
+74	                self.sniffer.stop()
+75	        except Exception:
+76	            pass
+77	        with self._lock:
+
+--------------------------------------------------
+
+Code scanned:
+	Total lines of code: 1696
+	Total lines skipped (#nosec): 0
+	Total potential issues skipped due to specifically being disabled (e.g., #nosec BXXX): 0
+
+Run metrics:
+	Total issues (by severity):
+		Undefined: 0
+		Low: 22
+		Medium: 0
+		High: 0
+	Total issues (by confidence):
+		Undefined: 0
+		Low: 0
+		Medium: 0
+		High: 22
+Files skipped (0):
