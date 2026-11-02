@@ -127,6 +127,4 @@ python -m pytest
 - Reference the story in the PR description (`Closes #N`).
 - Never commit captures, `*.pcap` files, the auth database or secrets.
 
-## Team
 
-Team Lead and Integration Lead: Chinmayi Hebbar A M. Add the other team members and their modules here.
