@@ -57,6 +57,7 @@ os.environ.setdefault("PPS_AUTH_DB", str(DATA_DIR / "pps_auth.db"))
 from auth import security, store  # noqa: F401
 
 try:  # capture module needs scapy only when actually used
+    from capture.filters import validate_filter
     from capture.interfaces import CaptureError, list_interfaces, select_interface
     CAPTURE_IMPORTED = True
 except (ImportError, OSError, RuntimeError):
@@ -70,6 +71,11 @@ except (ImportError, OSError, RuntimeError):
 
     def select_interface(identifier):
         raise CaptureError("Capture module unavailable.")
+
+    def validate_filter(expression, interface=None, require_compiler=True):
+        if require_compiler:
+            raise CaptureError("Capture module unavailable.")
+        return str(expression or "").strip()
 
 
 def detect_mode():

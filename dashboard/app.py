@@ -98,7 +98,23 @@ def secure_headers(resp):
 
 # --------------------------------------------------------------- data views
 def zeek_info():
-    return live.zeek if live else {"status": "mock"}
+    """Header badge: latest Zeek run, or 'unavailable' instead of 'ready' when Zeek is not installed."""
+    if not live:
+        return {"status": "mock"}
+    if live.zeek.get("status") == "idle":
+        found = integ.zeek_status()
+        if not found["available"]:
+            return {"status": "unavailable", "message": found.get("message", "")}
+    return live.zeek
+
+
+def session_zeek(rec):
+    """Zeek status of one session. Kept per session, so it never mixes up runs."""
+    if rec["mode"] != "live":
+        return {"status": "mock"}
+    if rec["id"] == session["sessionId"] and session["status"] in ("running", "paused"):
+        return {"status": "capturing"}
+    return rec.get("zeek") or {"status": "done", "log_files": []}
 
 
 def current_data():
@@ -126,7 +142,7 @@ def freeze_current():
     rec = records.get(session["sessionId"])
     if rec and rec["snapshot"] is None and session["status"] != "idle":
         stats, hosts, alerts = current_data()
-        rec["snapshot"] = {"stats": stats, "hosts": hosts, "alerts": alerts, "zeek": zeek_info()}
+        rec["snapshot"] = {"stats": stats, "hosts": hosts, "alerts": alerts}
 
 
 def session_view(rec, detail=False):
@@ -137,9 +153,10 @@ def session_view(rec, detail=False):
     if detail:
         if is_current:
             stats, hosts, alerts = current_data()
-            out.update(stats=stats, hosts=hosts, alerts=alerts, zeek=zeek_info())
+            out.update(stats=stats, hosts=hosts, alerts=alerts)
         else:
             out.update(rec["snapshot"] or {})
+        out["zeek"] = session_zeek(rec)
     return out
 
 
@@ -256,6 +273,10 @@ def start_capture():
             return error("INVALID_INTERFACE", str(exc), 400)
     elif iface not in MOCK_INTERFACES:
         return error("INVALID_INTERFACE", "Unknown network interface", 400)
+    try:  # presets (HTTPS, DNS ...) -> BPF; invalid BPF is rejected, never captured as "nothing"
+        bpf = integ.validate_filter(bpf, require_compiler=(MODE == "live"))
+    except CaptureError as exc:
+        return error("INVALID_FILTER", str(exc), 400)
     if session["status"] in ("running", "paused"):
         return error("INVALID_STATE", "Capture already running", 409)
 
@@ -274,7 +295,7 @@ def start_capture():
     session.update(status="running", sessionId=sid, startedAt=started.isoformat(timespec="seconds"))
     records[sid] = {"id": sid, "name": name, "tags": [], "interface": iface, "filter": bpf,
                     "startedAt": session["startedAt"], "stoppedAt": None, "mode": MODE,
-                    "dir": str(sdir) if sdir else None, "snapshot": None}
+                    "dir": str(sdir) if sdir else None, "snapshot": None, "zeek": None}
     audit.log("capture_start", getattr(g, "user", None), session=sid, interface=iface, filter=bpf)
     return jsonify({"sessionId": sid, "status": "running", "startedAt": session["startedAt"]})
 
@@ -289,7 +310,7 @@ def stop_capture():
     if rec:
         rec["stoppedAt"] = datetime.now().isoformat(timespec="seconds")
     if live:
-        live.stop()
+        live.stop(on_zeek=(lambda z, r=rec: r.update(zeek=z)) if rec else None)
     audit.log("capture_stop", g.user, session=session["sessionId"])
     return result
 
@@ -447,11 +468,23 @@ def export_session(sid):
             return error("NO_DATA", "No PCAP exists for this session (demo mode or purged).", 404)
         token, exp = _register_download(None, f"{sid}.pcap", "application/vnd.tcpdump.pcap", path=str(p))
     elif fmt == "zeek-logs":
-        zeek = session_view(rec, detail=True).get("zeek") or {}
+        zeek = session_zeek(rec)
+        state = zeek.get("status")
+        if state == "mock":
+            return error("NO_DATA", "Zeek logs are not available in demo mode.", 404)
+        if state == "capturing":
+            return error("INVALID_STATE", "Stop the session to generate Zeek logs.", 409)
+        if state == "running":
+            return error("NOT_READY", "Zeek is still analysing this session. Try again in a few seconds.", 409)
+        if state == "unavailable":
+            return error("ZEEK_UNAVAILABLE", "Zeek unavailable: Zeek is not installed "
+                         "(install it or set ZEEK_BIN to the zeek executable).", 503)
+        if state == "error":
+            return error("ZEEK_FAILED", "Zeek failed on this session's PCAP: " + zeek.get("message", ""), 500)
         out = Path(zeek.get("output_dir") or "")
         logs = sorted(out.glob("*.log")) if zeek.get("output_dir") and out.is_dir() else []
         if not logs:
-            return error("NO_DATA", "No Zeek logs for this session (Zeek unavailable or still running).", 404)
+            return error("NO_DATA", "No Zeek logs yet: Zeek finished but wrote no logs for this session.", 404)
         mem = io.BytesIO()
         with zipfile.ZipFile(mem, "w", zipfile.ZIP_DEFLATED) as z:
             for p in logs:

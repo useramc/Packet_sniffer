@@ -299,10 +299,18 @@ async function refreshSessions() {
   $("sessions-empty").hidden = res.data.sessions.length > 0;
 }
 
+// Export feedback is shown under the Session history table, next to the button that was clicked.
+function sessionsMessage(text, isError) {
+  const m = $("sessions-message");
+  m.textContent = text;
+  m.className = isError ? "error" : "muted";
+}
+
 async function exportSession(id, format) {
+  sessionsMessage("Preparing " + format + " export...", false);   // never leave an old error on screen
   const res = await api("/api/export/session/" + encodeURIComponent(id), "POST", { format });
-  if (!res.ok) { $("message").textContent = res.data.message || "Export failed."; return; }
-  $("message").textContent = "";
+  if (!res.ok) { sessionsMessage(res.data.message || "Export failed.", true); return; }
+  sessionsMessage("", false);
   window.location.href = res.data.downloadUrl;
 }
 
